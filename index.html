@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AI 求職教練 Career Coach｜系統 Demo v3</title>
+<title>AI 求職教練 Career Coach｜系統 Demo v3.1</title>
 <style>
 :root{--bg:#F3F0EA;--card:#FFFFFF;--ink:#333333;--mut:#6B655C;--line:#D9D3C8;--ac:#E07A5F;--ac2:#B4543A;--soft:#FBE9E3;--ok:#3F8F6B;--warn:#B07812;--nw:#2F6FD6;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#201D1A;--card:#2B2723;--ink:#F0EBE3;--mut:#B5AEA2;--line:#454039;--ac:#E8896F;--ac2:#F0A58F;--soft:#3A2B26;--ok:#6CC49B;--warn:#E3B04F;--nw:#6FA0F0;color-scheme:dark}}
@@ -69,6 +69,11 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:7px 6px;b
 .cli{padding:10px 12px;border-radius:10px;margin-top:8px;border:1px solid var(--line)}.cli.sel{border-color:var(--nw);box-shadow:0 0 0 2px rgba(47,111,214,.25)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;z-index:20;display:none;max-width:90vw}
 #net{position:fixed;top:0;left:0;right:0;background:var(--warn);color:#fff;text-align:center;padding:6px 12px;font-size:13px;z-index:20;display:none}
+.msg.sys{align-self:center;background:transparent;color:var(--mut);font-size:12px;padding:2px 8px}
+.why{font-size:12px;color:var(--nw);margin-top:3px;white-space:normal}
+.stg{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}.sc{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}.sc.on{background:var(--ac);color:#fff;border-color:var(--ac)}.sc.done{color:var(--ok);border-color:var(--ok)}
+.turn{border-left:3px solid var(--line);padding-left:10px;margin:6px 0;font-size:14px}.turn .qq{color:var(--ac2);font-weight:600}
+.clh{font-size:14px;font-weight:700;margin:16px 0 0;color:var(--mut)}
 svg text{fill:var(--mut);font-size:11px}
 </style>
 </head>
@@ -83,26 +88,105 @@ const ST=["準備中","面試中","等待結果","已結案"],STEPS=["履歷診�
 const COMP=["成就經驗","跨部門合作","衝突處理","失敗經驗","領導帶人","職涯動機"];
 const T2C={"自我介紹":"成就經驗","量化成果":"成就經驗","專業能力":"成就經驗","跨部門溝通":"跨部門合作","動機與地雷題":"職涯動機"};
 const KW=["SQL","Python","數據","專案","溝通","儀表板","分析","時程","預算","風險","協調","研究","Excel","簡報","行銷","使用者"];
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition,HAS_TTS=!!window.speechSynthesis;
+const TECH=["Go","Golang","Java","Scala","Node.js","Python","FastAPI","Django","Spring","GraphQL","REST","MySQL","PostgreSQL","MongoDB","Redis","Kafka","RabbitMQ","Elasticsearch","Docker","Kubernetes","GCP","AWS","Azure","CI/CD","Terraform","Prometheus","Grafana","serverless"];
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition,HAS_TTS=!!window.speechSynthesis,LIVE=!!window.document;
 const SC="・3 年專案管理經驗，負責跨部門需求整合\n・使用 Excel 與 Python 製作營運報表\n・主導網站改版專案，與設計、工程團隊協作";
+const SC_BE="・2 年後端開發經驗，使用 Python（FastAPI）開發會員與訂單 API\n・使用 MySQL 與 Redis，負責查詢效能調校\n・服務部署於 GCP，使用 Docker 與 GitHub Actions 建立 CI/CD\n・與前端、PM 協作完成電商網站改版";
 const SUS=["我想我會經常使用這個系統","我覺得這個系統過於複雜","我覺得這個系統很容易使用","我想我需要技術人員協助才能使用這個系統","我覺得這個系統的各項功能整合得很好","我覺得這個系統有太多不一致的地方","我想大部分的人都能很快學會使用這個系統","我覺得這個系統用起來很笨拙","使用這個系統時我很有信心","我需要先學很多東西才能開始使用這個系統"];
-const DIMS=["具體性","量化數據","結構","切題"];
+const D_ACC="技術正確性",D_DEP="技術深度",D_DEC="問題拆解",D_EXP="實務經驗",D_COM="表達溝通",D_MOT="動機與團隊適配";
+const DIMS=[D_ACC,D_DEP,D_DEC,D_EXP,D_COM,D_MOT];
+const SUGG={[D_ACC]:"把答錯或沒提到的觀念，用自己的話重講一次原理",[D_DEP]:"每個做法補一句「為什麼這樣選、替代方案是什麼」",[D_DEC]:"先釐清需求與規模，再用「第一、第二、第三」的步驟回答",[D_EXP]:"用 STAR（情境、任務、行動、結果）講，並補上量測方式與數字",[D_COM]:"先講結論，再補 2～3 個重點，控制在 2 分鐘內",[D_MOT]:"準備對公司產品的具體觀察，並把自己的經驗連到這個職缺",
+"具體性":"補上情境與細節","量化數據":"補上規模、時間或百分比","結構":"用「情境→行動→結果」回答","切題":"先回應題目重點"};
+const STG=["","開場與動機","技術基礎","資料庫與快取","API 與系統設計","專案深挖與維運","行為與團隊","反問與結束"];
+const KIND={be:"後端工程師（專業題庫）",gen:"通用職類（行為題）"},LVL={jr:"初階（0–2 年）",mid:"中高階（3 年以上）"};
+
+/* ===== 題庫（依《AI 面試官提問題庫：後端工程師》） ===== */
+function mk(id,st,lv,q,f,gs,rf,dims,m,o){return Object.assign({id,st,lv,q,f,gs,rf,dims,m},o||{})}
+const RV=mk("RV",7,"a","你有什麼想問我們的嗎？",[],[["問到團隊或技術","技術棧","開發流程","流程","團隊","架構"],["問到工作內容或產品","新人","前三個月","產品","挑戰","工作內容"]],[],[D_MOT],"請問團隊目前的技術棧和開發流程是什麼？新人入職前三個月主要會負責哪些工作？",{must:1});
+const BE=[
+mk("BE-OP-01",1,"a","請用 2 分鐘介紹你自己，特別是跟後端開發有關的經驗。",["你提到的專案，你負責的是哪一塊？"],[["技術棧","Python","Go","Java","Node","FastAPI","Django","Spring","MySQL","PostgreSQL","Redis","API"],["代表專案","專案","系統","服務","平台"],["想做的方向","希望","想要","方向","目標","接下來"]],[["念履歷式流水帳","然後我又","之後我又"]],[D_COM,D_MOT],"我有 2 年後端經驗，主力是 Python 與 FastAPI。代表專案是電商訂單 API，我負責把查詢從 800ms 降到 200ms。接下來想深化高流量服務的效能與穩定性，這也是我應徵這個職缺的原因。",{must:1,comp:"成就經驗"}),
+mk("BE-OP-02",1,"a","為什麼想應徵{co}的這個職缺？你怎麼理解我們的產品？",["你覺得我們的產品在後端上最大的挑戰是什麼？"],[["提到公司或產品","{co}","產品","客戶"],["連結自己的能力","我的經驗","我擅長","我做過","我負責","和我"]],[["只談名氣或福利","有名","福利","大公司"]],[D_MOT,D_COM],"我看到{co}的產品要處理大量即時資料，這和我做過的效能調校經驗相關；我想在更大的流量規模下累積系統設計經驗。",{must:1,comp:"職涯動機"}),
+mk("BE-OP-03",1,"a","你為什麼選擇後端，而不是前端或其他方向？",["未來 3 年你希望在後端深化哪個領域？"],[["具體興趣點","資料","效能","架構","穩定"],["學習軌跡","學","專案","開始"]],[],[D_MOT,D_COM],"我喜歡解決資料與效能問題，從大學專題寫 API 開始，到工作上調校慢查詢；未來 3 年想深化分散式系統與可觀測性。",{comp:"職涯動機"}),
+mk("BE-TB-01",2,"j","從瀏覽器輸入網址到看到頁面，中間發生了什麼？",["HTTPS 比 HTTP 多了哪些步驟？"],[["DNS 查詢","DNS"],["TCP 連線","TCP","握手"],["TLS 加密","TLS","SSL","HTTPS","憑證"],["伺服器處理與回應","伺服器","回應","渲染"]],[],[D_ACC,D_DEP],"先經 DNS 查到 IP，建立 TCP 連線，HTTPS 再做 TLS 握手；接著送出 HTTP 請求，伺服器處理後回傳回應，瀏覽器再解析與渲染頁面。"),
+mk("BE-TB-02",2,"a","GET、POST、PUT、PATCH 差在哪？什麼是冪等？",["401 和 403 差在哪？502 和 503 呢？","服務間呼叫失敗重試時，冪等為什麼重要？"],[["說明冪等","冪等","同樣的結果","結果相同","結果都一樣","idempotent"],["PUT 與 PATCH 差異","整筆","部分","局部","取代"],["舉實際 API","例如","像是","比如"]],[["把 POST 當萬用方法","都用 POST","全部用 POST"],["狀態碼全回 200","都回 200","全部回 200"]],[D_ACC,D_DEP],"GET 讀取、POST 新增、PUT 整筆取代、PATCH 部分更新。冪等是同一請求送多次結果相同，例如 PUT 更新地址送兩次結果一樣，但 POST 建立訂單送兩次會多一筆，所以重試時要帶冪等鍵。"),
+mk("BE-TB-03",2,"j","雜湊表（例如 Python 的 dict）怎麼做到快速查詢？",["什麼情況會變慢？list、dict、set 怎麼選？"],[["雜湊函數","雜湊","hash"],["碰撞處理","碰撞","collision"],["時間複雜度","O(1)","複雜度","O(n)"]],[],[D_ACC,D_DEP],"用雜湊函數把 key 換成陣列位置，平均 O(1) 查詢；碰撞太多時會退化。查是否存在用 set，key 對應值用 dict，需要順序用 list。"),
+mk("BE-TB-04",2,"j","請解釋 decorator 和 generator，你在專案中怎麼用？",["generator 對記憶體的好處是什麼？"],[["實際使用場景","權限","log","快取","大檔案","逐行"],["generator 省記憶體","記憶體","yield","一次一筆"]],[],[D_ACC,D_EXP],"我用 decorator 做 API 權限檢查與記錄執行時間；generator 用 yield 逐行讀取大檔案，不必一次載入，記憶體用量穩定。"),
+mk("BE-TB-05",2,"m","process、thread、coroutine 差在哪？Python 的 GIL 影響什麼？",["FastAPI 用 async 什麼時候反而變慢？"],[["區分 IO 與 CPU 密集","IO","I/O","CPU"],["GIL 的限制","GIL","同一時間只有一個"],["阻塞會卡住 event loop","阻塞","event loop","blocking","卡住"]],[["認為 async 一定比較快","一定比較快","一定變快","應該一定"]],[D_ACC,D_DEP],"GIL 讓同一時間只有一個 thread 執行 Python 位元碼，所以 CPU 密集用 process，IO 密集用 thread 或 coroutine。async 函式裡呼叫同步阻塞的套件會卡住 event loop，反而變慢。"),
+mk("BE-TB-06",2,"m","兩個請求同時扣同一件商品庫存，會發生什麼？",["用悲觀鎖、樂觀鎖或佇列解，各有什麼代價？"],[["描述超賣過程","超賣","同時讀到","負數"],["比較至少兩種解法","悲觀鎖","樂觀鎖","佇列","版本號"]],[["只答加 if 判斷","加個 if","if 判斷"]],[D_ACC,D_DEP,D_DEC],"兩個請求同時讀到庫存 1，各自扣減後都成功，造成超賣。悲觀鎖安全但併發低；樂觀鎖用版本號，衝突時重試；高流量時可用佇列排隊處理。"),
+mk("BE-DB-01",3,"a","關聯式資料庫和 NoSQL 各適合什麼場景？",["你的專案為什麼選這個資料庫？"],[["資料關係","關聯","關係","join"],["一致性需求","一致性","交易","ACID"],["擴展方式","擴展","水平","schema","彈性"]],[["老師教的／大家都用","老師教","大家都用"]],[D_ACC,D_DEP,D_EXP],"關係明確、需要交易一致性的訂單與會員用關聯式；格式常變動或要水平擴展的事件、日誌用 NoSQL。我的專案選 MySQL，因為訂單需要交易。"),
+mk("BE-DB-02",3,"j","什麼是正規化？什麼時候會刻意反正規化？",["請設計一個「會員、訂單、商品」的資料表。"],[["減少重複資料","重複","冗餘"],["主外鍵關係","主鍵","外鍵"],["讀多寫少的取捨","讀多","查詢效能","反正規化"]],[["全部塞同一張表","同一張表","一張表就好"]],[D_ACC,D_DEP],"正規化是拆表減少重複資料；讀多寫少、join 成本太高時會刻意反正規化，例如在訂單表冗餘存商品名稱。"),
+mk("BE-DB-03",3,"j","什麼是 N+1 查詢問題？",["在 Django 裡怎麼避免？"],[["說明 N+1 成因","N+1","每一筆","迴圈"],["預先載入的解法","select_related","prefetch_related","join"]],[],[D_ACC,D_EXP],"查 N 筆主資料後，迴圈裡又逐筆查關聯資料，總共 N+1 次查詢。Django 用 select_related 或 prefetch_related 預先載入。"),
+mk("BE-DB-04",3,"m","索引為什麼能加速查詢？哪些欄位適合建索引？",["複合索引的欄位順序有差嗎？為什麼建了索引卻沒用到？"],[["B-tree 結構","B-tree","B+","樹"],["最左前綴","最左","前綴"],["寫入成本","寫入","成本","空間"]],[["每個欄位都建索引","每個欄位都建","全部都建索引"]],[D_ACC,D_DEP],"索引多用 B+ tree，讓查詢不必掃全表；適合常用於 WHERE、JOIN 且區分度高的欄位。複合索引要符合最左前綴，對欄位做函式運算會用不到索引；索引也會增加寫入成本。"),
+mk("BE-DB-05",3,"m","請解釋 ACID 與交易隔離層級。",["髒讀、不可重複讀、幻讀各是什麼？"],[["舉轉帳或扣庫存的例子","轉帳","扣庫存","庫存"],["說明隔離層級","隔離","Read Committed","Repeatable","Serializable"]],[],[D_ACC,D_DEP],"ACID 是原子性、一致性、隔離性、持久性。以轉帳為例，扣款與入帳要一起成功或失敗；隔離層級越高越安全但併發越低，MySQL 預設 Repeatable Read。"),
+mk("BE-DB-06",3,"m","一支 API 突然變慢，懷疑是資料庫，你怎麼查？",["EXPLAIN 的結果你會看哪些欄位？"],[["慢查詢紀錄","慢查詢","slow"],["執行計畫","EXPLAIN","執行計畫"],["索引與資料量","索引","資料量"]],[["直接加機器","加機器","升級機器"]],[D_DEC,D_EXP],"先用 APM 確認時間花在資料庫，再查慢查詢紀錄找出 SQL，用 EXPLAIN 看是否全表掃描、用了哪個索引，最後補索引或改寫查詢。"),
+mk("BE-DB-07",3,"m","什麼資料適合放 Redis？資料更新時快取怎麼處理？",["快取穿透、擊穿、雪崩各怎麼防？"],[["cache-aside 模式","cache-aside","先查快取","旁路"],["設定 TTL","TTL","過期"],["一致性取捨","一致性","刪除快取","不一致"]],[],[D_ACC,D_DEP,D_EXP],"讀多寫少的熱門資料適合放 Redis。我用 cache-aside：讀先查快取，更新時先寫資料庫再刪快取，並設 TTL；雪崩則用隨機過期時間避免同時失效。"),
+mk("BE-API-01",4,"j","請設計「會員收藏書單」的 RESTful API 端點。",["收藏清單很長時，分頁用 offset 還是 cursor？"],[["資源命名一致","/favorites","名詞","資源"],["方法與狀態碼正確","GET","POST","DELETE","201","404"],["處理錯誤回應","錯誤","400","error"]],[["URL 寫成動詞","/get","/add","/delete"]],[D_ACC,D_DEC],"GET /users/{id}/favorites 取得清單、POST 新增回 201、DELETE /users/{id}/favorites/{bookId} 移除；錯誤回 400 或 404，清單長時用 cursor 分頁。"),
+mk("BE-API-02",4,"j","Session 與 JWT 的認證方式差在哪？",["JWT 被盜時怎麼處理？refresh token 怎麼設計？"],[["有狀態與無狀態","有狀態","無狀態","stateless"],["過期與撤銷","過期","撤銷","黑名單","refresh"]],[["認為 JWT 內容有加密","JWT 有加密","JWT 是加密"]],[D_ACC,D_DEP],"Session 狀態存在伺服器，JWT 把資訊簽章後放在 token 裡、伺服器不必存；JWT 內容只是編碼不是加密，被盜時難撤銷，所以要短效期加 refresh token。"),
+mk("BE-API-03",4,"m","要寄送 10 萬封通知信，可以直接在 API 裡同步發送嗎？",["發送失敗或重複發送怎麼處理？"],[["使用訊息佇列","佇列","queue","Kafka","RabbitMQ","Celery"],["背景工作","背景","非同步","worker"],["重試與冪等","重試","冪等","重複"]],[["同步直接發送","直接發","同步發送"]],[D_DEC,D_DEP],"不行，會逾時。API 只把任務放進佇列，由背景 worker 分批發送；失敗時重試，並用發送紀錄做冪等，避免重複寄出。"),
+mk("BE-API-04",4,"m","API 上線後要改欄位，怎麼不影響舊版 App？",["你會怎麼做限流（rate limit）？"],[["版本控制","版本","v1","v2"],["向下相容","相容","舊版"],["棄用流程","棄用","deprecate","公告"]],[["直接改","直接改"]],[D_DEC,D_DEP],"新增欄位保持向下相容，不能相容時開 v2 版本，舊版設棄用期並公告，確認流量轉移後再下線。"),
+mk("BE-PJ-01",5,"a","介紹一個你最有成就感的後端專案。",["哪一部分是你寫的？如果重做你會改什麼？"],[["用「我」說明貢獻","我負責","我寫","我設計","我做"],["技術選擇的理由","因為","選擇","取捨"],["量化的結果","%","ms","秒","倍","小時"]],[],[D_EXP,D_COM,D_DEP],"當時我負責電商訂單查詢 API，回應時間常超過 800ms。我先用 APM 找到兩支慢查詢，補上複合索引並把熱門資料放 Redis，結果 p95 降到 200ms。",{must:1,comp:"成就經驗"}),
+mk("BE-PJ-02",5,"a","你履歷上的成果數字（例如效能提升 50%）是怎麼量的？",["改善前後的瓶頸在哪？"],[["量測指標","p95","平均","回應時間","指標"],["量測方式","APM","監控","log","比較"],["基準值","改善前","原本","基準"]],[],[D_EXP,D_ACC],"我用 APM 的 p95 回應時間，比較改版前後一週的數據；原本瓶頸是缺少索引的訂單查詢。"),
+mk("BE-PJ-03",5,"a","線上出現 500 錯誤，本機卻無法重現，你怎麼查？",["你的系統 log 會記錄哪些資訊？"],[["先看 log","log","日誌"],["比對環境差異","環境","設定","版本","資料"],["縮小範圍、驗證假設","縮小","假設","重現","驗證"]],[["亂改程式碼試試","改改看","亂改"]],[D_DEC,D_EXP],"先看錯誤 log 與追蹤 ID 找到出錯的請求，比對線上與本機的設定、版本與資料差異，縮小範圍後用相同資料重現並驗證假設。"),
+mk("BE-PJ-04",5,"j","你怎麼決定哪些程式要寫測試？",["單元測試和整合測試差在哪？"],[["以風險與核心邏輯排序","核心","風險","金流","重要"],["分清測試層級","單元","整合"]],[],[D_EXP,D_DEP],"以風險決定優先順序：金流、權限等核心邏輯一定寫單元測試，API 串接再補整合測試。"),
+mk("BE-PJ-05",5,"j","你的服務是怎麼部署上線的？",["Docker 解決了什麼問題？CI/CD 流程有哪些關卡？"],[["知道每一個步驟","測試","建置","部署","合併"],["容器化與自動化","Docker","CI","自動"]],[["都是別人弄的","別人弄","不清楚"]],[D_EXP,D_ACC],"推程式碼後 CI 跑測試與建置 Docker 映像，通過後自動部署到測試環境，驗證後再發布到正式環境。"),
+mk("BE-PJ-06",5,"m","講一次你處理過的線上事故。",["事後檢討做了哪些改善？"],[["先止血","回滾","rollback","止血","切流量","降級"],["查出根因","根因","原因"],["預防再發","檢討","預防","告警","監控"]],[["卸責","不是我的問題","別人的錯"]],[D_EXP,D_DEC],"當時新版上線後錯誤率升高，我先回滾止血，再從 log 找到是設定錯誤；事後補上部署前檢查與告警。",{comp:"失敗經驗"}),
+mk("BE-SEC-01",5,"a","什麼是 SQL Injection？你怎麼防？",["使用者密碼應該怎麼存？"],[["參數化查詢","參數化","prepared","ORM"],["密碼加鹽雜湊","bcrypt","雜湊","hash","鹽"]],[["用字串拼接 SQL","字串拼接"],["密碼能解回","解密","加密後"]],[D_ACC,D_DEP],"SQL Injection 是把惡意字串拼進 SQL 執行。用參數化查詢或 ORM 防範，資料庫帳號給最小權限；密碼用 bcrypt 加鹽雜湊，不能解回。",{jd:["資安","安全","security","金流","會員資料"],gen:1,pri:4}),
+mk("BH-01",6,"a","請分享一次你和前端或 PM 對規格意見不同的經驗。",["最後怎麼決定？你從中學到什麼？"],[["用資料或使用者影響說服","資料","數據","使用者","影響"],["尊重對方角色","理解","討論","共識"]],[["批評對方","他們不懂","都是他們"]],[D_COM,D_MOT],"當時 PM 想在結帳頁加很多欄位，我用流失率數據說明影響，最後一起把欄位減為兩個，轉換率沒有下降。",{comp:"衝突處理"}),
+mk("BH-02",6,"a","遇到完全沒用過的技術，你怎麼在短時間內上手？",["舉一個你最近自學的技術。"],[["具體學習方法","官方文件","文件","小專案","請教"],["有實際例子","當時","最近","之前"]],[["只說上網查","上網查"]],[D_EXP,D_MOT],"先讀官方文件，用小專案驗證關鍵功能，再請有經驗的同事 review；我用這方法兩週內把 Redis 導入專案。",{comp:"成就經驗"}),
+mk("BH-03",6,"a","時程來不及時，你怎麼取捨功能與程式品質？",["你會怎麼跟主管溝通？"],[["主動提早回報風險","回報","提早","風險"],["提出具體選項","選項","優先","取捨","延後"]],[["自己熬夜硬做","熬夜","硬做"]],[D_COM,D_DEC],"我會提早回報風險，列出「砍功能如期上線」與「延後一週保留品質」兩個選項給主管決定。",{comp:"跨部門合作"}),
+mk("BH-04",6,"a","你如何做程式碼審查，或接受別人的審查意見？",["有沒有不同意審查意見的時候？"],[["就事論事","就事論事","理由","討論"],["視為學習","學習","改善"]],[["視為人身攻擊","攻擊","不爽"]],[D_COM,D_MOT],"審查時就事論事、說明理由；被審查時把意見當學習，不同意時附上測試數據討論。",{jd:["code review","程式碼審查"],gen:1,pri:6,comp:"衝突處理"}),
+/* 客製加考題：依 JD 關鍵字觸發 */
+mk("BE-CU-OPS1",5,"a","你輪值 on-call，半夜收到告警說 API 錯誤率上升，前 15 分鐘你會做什麼？",["如果查原因需要 1 個小時，這段時間使用者怎麼辦？","你會看哪些監控指標來判斷問題變好或變壞？需要通知誰嗎？"],[["確認影響範圍","影響","範圍"],["先止血","回滾","退回","rollback","止血","切流量"],["通報","通報","通知","值班"],["事後檢討","檢討","事後"]],[],[D_EXP,D_DEC],"先確認影響範圍，若剛有新版上線就先回滾止血，在值班群組通報，再看 log 與監控查根因，事後寫檢討。",{jd:["on-call","oncall","事故","incident","告警","可觀測"],pri:2,comp:"失敗經驗"}),
+mk("BE-CU-OPS2",3,"m","一支 API 變慢，你怎麼找出是資料庫還是程式本身的問題？",["profiling 的結果你會怎麼看？"],[["用工具量測","APM","profiling","profiler","追蹤"],["分段比較時間","資料庫","查詢時間","程式","CPU"]],[["直接加機器","加機器"]],[D_DEC,D_EXP],"用 APM 或 tracing 看時間花在哪一段；資料庫慢就看慢查詢與 EXPLAIN，程式慢就用 profiler 找熱點函式。",{jd:["profiling","profiler","效能調校","效能分析"],pri:4}),
+mk("BE-CU-GQL",4,"m","REST 和 GraphQL 各適合什麼情境？",["GraphQL 的查詢太複雜時，後端怎麼保護自己？"],[["REST 的特點","簡單","快取","資源"],["GraphQL 的特點","欄位","前端","組合"],["說出取捨","適合","取捨","但"]],[],[D_ACC,D_DEP],"REST 簡單、好快取，適合資源明確的 API；GraphQL 讓前端選需要的欄位，適合畫面多變的情境。要限制查詢深度、複雜度並設逾時。",{jd:["GraphQL"],pri:3}),
+mk("BE-CU-EVT",4,"m","請設計一個接收大量事件（例如曝光、點擊）的服務，流量尖峰時怎麼不掉資料？",["流量翻 10 倍呢？","下游資料庫掛了呢？"],[["先釐清需求","需求","範圍","使用量","先確認","先問"],["粗估規模","每秒","QPS","量級","尖峰"],["用佇列緩衝","佇列","Kafka","queue","緩衝"],["瓶頸與取捨","瓶頸","取捨","批次","擴展"]],[["只說加機器","再加機器","加機器"]],[D_DEC,D_DEP,D_ACC],"先確認每秒事件量與可接受延遲；API 只驗證後寫進 Kafka，worker 批次寫入資料庫，報表另做彙總。流量翻倍時水平擴展 worker 與分區，資料庫掛了事件留在佇列等待補寫。",{jd:["分散式","高流量","高併發","大量資料","大型"],pri:2,sd:1}),
+mk("BE-CU-MQ",4,"m","訊息重複消費時怎麼處理？",["怎麼確保訊息順序？"],[["冪等處理","冪等","去重","唯一"],["確認機制","ack","確認","重試"]],[],[D_ACC,D_DEP],"消費端做冪等，用訊息 ID 去重；處理成功才 ack，失敗重試並設死信佇列。",{jd:["Kafka","RabbitMQ","訊息佇列"],pri:4}),
+mk("BE-CU-MS",4,"m","微服務怎麼拆？服務間呼叫失敗怎麼處理？",["要怎麼追蹤一個請求跨了哪些服務？"],[["依業務邊界拆分","業務","邊界","領域"],["失敗處理","重試","逾時","熔斷","降級"]],[],[D_DEC,D_DEP],"依業務邊界拆，每個服務有自己的資料；呼叫要設逾時、重試與熔斷，必要時降級回應。",{jd:["微服務","microservice"],pri:4}),
+mk("BE-CU-SLS",4,"m","什麼樣的服務適合 serverless？冷啟動與成本怎麼取捨？",["你會怎麼監控 serverless 服務？"],[["適用情境","事件","流量不穩","排程"],["冷啟動與成本","冷啟動","成本"]],[],[D_DEP,D_ACC],"流量不穩或事件觸發的任務適合 serverless；冷啟動會影響延遲，長時間高流量反而比固定機器貴。",{jd:["serverless","Lambda","Cloud Functions","Cloud Run"],pri:4}),
+mk("BE-CU-TEST",5,"m","單元、元件、端對端測試各測什麼？你怎麼分配？",["不穩定的測試怎麼處理？"],[["分清三層","單元","元件","端對端","E2E"],["分配比例","金字塔","比例","多寫"]],[],[D_ACC,D_EXP],"單元測邏輯、元件測模組整合、端對端測使用者流程；依測試金字塔大量單元測試，少量端對端。",{jd:["單元測試","端對端","E2E","整合測試","元件測試"],pri:3}),
+mk("BE-CU-EN",5,"a","Please briefly describe a recent backend project in English.",["What was the hardest technical decision?"],[["說清楚專案","project","API","service"],["說明自己的角色","I ","my role","responsible"]],[],[D_COM],"I built the order API for an e-commerce site with FastAPI. I was responsible for query performance, and reduced response time from 800 ms to 200 ms.",{jd:["英文","English","全球","global"],pri:3}),
+mk("BE-CU-K8S",5,"m","服務要自動擴展，你會怎麼設定？",["擴展的指標要怎麼選？"],[["擴展機制","HPA","自動擴展","autoscal"],["擴展指標","CPU","請求數","延遲"]],[],[D_ACC,D_EXP],"在 Kubernetes 設 HPA，以 CPU 或每秒請求數為指標，並設定最小與最大副本數。",{jd:["Kubernetes","K8s","自動擴展"],pri:4})];
+const SD_GS=[["先釐清需求","需求","範圍","使用量","先確認","先問"],["粗估規模","每秒","QPS","量級","尖峰"],["高階架構","快取","資料庫","佇列","負載平衡"],["資料模型","資料表","欄位","schema"],["瓶頸與取捨","瓶頸","取捨","代價","缺點"]];
+function sdQ(lvl,n){if(lvl==="jr")return mk("BE-SD-JR",4,"j","說明你專案的系統架構，如果使用者變成 100 倍，哪裡會先壞？",["你會先改哪裡？"],SD_GS,[["只說加機器","加機器"]],[D_DEC,D_DEP],"我的專案是 API 加 MySQL；使用者變 100 倍時資料庫會先撐不住，我會先加讀寫分離與快取。",{sd:1});
+const L=["設計一個短網址服務。","設計一個站內通知系統（信件、推播、站內信）。","設計限量商品的搶購功能。","設計線上書店的站內搜尋（關鍵字、篩選、排序）。"],k=(n-1)%L.length;
+return mk("BE-SD-"+(k+1),4,"m",L[k],["流量翻 10 倍呢？","資料庫掛了呢？"],SD_GS,[["只說加機器","加機器"]],[D_DEC,D_DEP,D_ACC],"先釐清功能範圍與使用量，粗估每秒請求數，再畫出 API、服務、資料庫與快取的關係，說明主要資料表，最後討論瓶頸與取捨。",{sd:1})}
+const GEN=[
+mk("G-OP-01",1,"a","請用 2 分鐘介紹你自己，以及和{role}相關的經驗。",["你的經歷中，哪一段最能證明你勝任這個職位？"],[["相關經驗","經驗","年","負責"],["代表成果","專案","成果","%"],["想做的方向","希望","想要","方向","目標"]],[],[D_COM,D_MOT],"我有 3 年專案管理經驗，擅長整合跨部門需求；最近一次改版提前 2 週上線，接下來想在{co}發揮這個能力。",{must:1,comp:"成就經驗"}),
+mk("G-OP-02",1,"a","為什麼想應徵{co}的{role}？",["你覺得這個職位最大的挑戰是什麼？"],[["提到公司或產品","{co}","產品","服務","客戶"],["連結自己的能力","我的經驗","我擅長","我做過"]],[["只談名氣或福利","有名","福利","大公司"]],[D_MOT,D_COM],"我研究過{co}的產品，看到它們正在擴大服務範圍，這和我過去的經驗相關，我想在這裡承擔更大的責任。",{must:1,comp:"職涯動機"}),
+mk("G-OP-03",1,"a","為什麼想離開目前（或上一份）工作？",["如果新主管的風格和前主管很像，你會怎麼調整？"],[["正向的成長動機","成長","目標","挑戰","學習"]],[["抱怨前公司","爛","受不了","討厭"]],[D_MOT,D_COM],"我想把能力放到更核心的決策上；前公司給了我很好的基礎，這個職位的挑戰和我的成長目標一致。",{comp:"職涯動機"}),
+mk("G-PJ-01",5,"a","請分享一次最讓你有成就感的專案，以及你的具體貢獻。",["這個成果你是怎麼衡量的？"],[["用「我」說明貢獻","我負責","我主導","我做"],["量化的結果","%","倍","小時","萬"]],[],[D_EXP,D_COM],"當時我主導網站改版，協調 3 個團隊，結果提前 2 週上線、轉換率提升 15%。",{must:1,comp:"成就經驗"}),
+mk("G-PJ-02",5,"a","請舉例說明你如何用數據說服團隊。",["最後的結果如何？"],[["使用數據","數據","資料","分析"],["說明結果","結果","最後","%"]],[],[D_EXP,D_DEC],"當時團隊對流程調整有疑慮，我整理三個月的數據提出建議，採用後錯誤率下降 30%。",{comp:"成就經驗"}),
+mk("G-PJ-03",5,"a","請分享一次失敗或不如預期的經驗，你學到什麼？",["之後你做了哪些改變？"],[["承認自己的責任","我","責任","沒有做好"],["具體的改善","改善","學到","之後"]],[["卸責","別人的錯","不是我"]],[D_EXP,D_MOT],"有一次我低估了需求變更，專案延誤一週；之後我在每個階段加入風險檢查，下一個專案準時交付。",{comp:"失敗經驗"}),
+mk("G-BH-01",6,"a","請分享一次跨部門意見不同的經驗，你如何處理？",["如果對方始終不同意，你會怎麼做？"],[["用資料或影響說服","資料","數據","影響"],["達成共識","共識","討論","協調"]],[["批評對方","他們不懂"]],[D_COM,D_MOT],"當時設計和工程對時程有衝突，我先整理雙方需求，接著召開協調會議，最後達成共識，專案提前 2 週上線。",{comp:"衝突處理"}),
+mk("G-BH-02",6,"a","同時有多個緊急任務時，你怎麼安排優先順序？",["你會怎麼跟主管溝通？"],[["排序依據","影響","優先","截止"],["主動溝通","回報","溝通","主管"]],[["自己熬夜硬做","熬夜","硬做"]],[D_DEC,D_COM],"依影響範圍與截止時間排序，先處理影響最多人的事，並主動跟主管確認排序。",{comp:"跨部門合作"}),
+mk("G-BH-03",6,"a","請分享一次你帶領或影響他人完成目標的經驗。",["過程中遇到最大的阻力是什麼？"],[["說明自己的角色","我負責","我帶","我主導"],["具體成果","結果","%","完成"]],[],[D_EXP,D_COM],"當時我帶 3 位新人完成活動專案，先拆分工作與每週檢查點，最後提前完成並超出報名目標 20%。",{comp:"領導帶人"}),
+mk("G-BH-04",6,"a","遇到完全不熟悉的工作，你怎麼快速上手？",["舉一個你最近自學的技能。"],[["具體學習方法","文件","課程","請教","練習"],["實際例子","當時","最近","之前"]],[["只說上網查","上網查"]],[D_EXP,D_MOT],"先讀文件與案例，用小任務練習，再請有經驗的同事給回饋；我用這方法一個月學會資料分析工具。",{comp:"成就經驗"})];
+const BANKQ=[...BE,...GEN,RV];
+
+/* ===== 本版更新說明 ===== */
 const CL=[null,
 {t:"流程引導",b:"專案內六個分頁可任意跳，不知道先做哪個",a:"頂端進度條標示每一步是否完成，並提示建議下一步；每頁底部有「下一步」按鈕",w:"任一專案頁的頂端與底部"},
 {t:"履歷建議可套用",b:"AI 改寫建議只能看，要自己回去改",a:"每條建議可套用、略過或先修改再套用，一鍵產生新版履歷，之後的模擬面試依新版出題",w:"專案 → ① 履歷診斷"},
-{t:"評分有依據",b:"只顯示分數，看不出為什麼",a:"依四項標準（具體性、量化數據、結構、切題）各 25 分評分，並引用你的原句說明扣分原因",w:"專案 → ③ 面試報告 → 弱點分析"},
-{t:"特訓後驗證進步",b:"特訓重練會直接幫面試加分",a:"特訓分數只供練習；需再做一次完整面試，題型平均達 70 分才標示「已改善」",w:"④ 弱點特訓、⑤ 成長追蹤、首頁弱點標籤"},
+{t:"評分有依據",b:"只顯示分數，看不出為什麼",a:"每題列出評分依據並引用你的原句（v3.1 改為六個維度，見新 16）",w:"專案 → ③ 面試報告 → 弱點分析"},
+{t:"特訓後驗證進步",b:"特訓重練會直接幫面試加分",a:"特訓分數只供練習；需再做一次完整面試，該階段平均達 70 分才標示「已改善」",w:"④ 弱點特訓、⑤ 成長追蹤、首頁弱點標籤"},
 {t:"面試前準備",b:"按下開始就直接出題",a:"麥克風測試、規則說明、面試官風格選擇；面試中可暫停或提前結束",w:"專案 → ② 模擬面試"},
 {t:"隱私與同意",b:"沒有說明資料用途",a:"首次使用需閱讀並同意資料使用說明；可撤回研究同意或刪除所有資料",w:"登入後的同意頁、首頁「隱私與資料」"},
 {t:"故事庫與面試連動",b:"故事庫只是存放區",a:"弱點分析會建議用哪個故事回答；故事有能力類別，並顯示涵蓋與缺口",w:"弱點分析、首頁故事庫"},
 {t:"新使用者空狀態",b:"一登入就看到示範資料，容易誤會是自己的",a:"新帳號是空白並有三步驟引導；範例資料可另外載入與清除",w:"首頁"},
 {t:"收集測試資料",b:"受試者資料留在各自瀏覽器，無法分析",a:"記錄操作事件、完成步驟與用時，提供 SUS 易用性問卷與匿名匯出",w:"首頁「研究資料」、面試報告的問卷邀請"},
 {t:"真實面試結果回饋",b:"復盤只能記下題目",a:"記錄關卡與結果（自動更新看板狀態），題目加入題庫並出現在下一次模擬面試",w:"專案 → ⑥ 面試復盤、② 模擬面試的題目來源"},
-{t:"錯誤與相容性處理",b:"不支援語音、沒權限或斷線時沒有提示",a:"自動偵測並改用文字輸入；麥克風權限與斷線提示；未完成的面試可從中斷處接續",w:"② 模擬面試的環境檢查、畫面頂端斷線提示"}];
+{t:"錯誤與相容性處理",b:"不支援語音、沒權限或斷線時沒有提示",a:"自動偵測並改用文字輸入；麥克風權限與斷線提示；未完成的面試可從中斷處接續",w:"② 模擬面試的環境檢查、畫面頂端斷線提示"},
+{t:"完整面試流程",b:"每次只問 4～5 個「題型」",a:"依題庫的 7 個階段進行：開場與動機 → 技術基礎 → 資料庫與快取 → API 與系統設計 → 專案深挖與維運 → 行為與團隊 → 反問。標準版 30 分鐘 13 題，快速版 15 分鐘 7 題",w:"② 模擬面試的「面試流程」表、面試中的階段列"},
+{t:"依職類與職級出題",b:"所有職缺都問同一組通用題",a:"後端工程師使用專業題庫（其他職類用行為題）；初階加重技術基礎，中高階加重系統設計；第 2 次起換題，可比較但不重複",w:"新增專案表單、② 模擬面試的設定"},
+{t:"依 JD 客製題與技能落差",b:"只有「履歷缺口」一種客製題",a:"JD 關鍵字（on-call、GraphQL、高流量等）觸發加考題，客製題不超過三分之一；JD 有但履歷沒有的技術只問一題「你會怎麼追上」，並列入技能落差",w:"② 模擬面試的題目來源、弱點分析的技能落差"},
+{t:"追問規則",b:"每題固定追問一次",a:"依回答狀況決定：太籠統要實例、用「我們」問個人貢獻、命中警訊反問「你確定嗎」、說不知道給提示、答得完整就加壓；每題最多 2 層，停頓 20 秒提醒邊想邊說。逐字稿標出 AI 判斷",w:"面試中（可勾選顯示 AI 判斷）、面試總覽的逐字稿"},
+{t:"六維度評分與警訊",b:"四項通用標準（具體性、量化、結構、切題）",a:"改用題庫的六個維度（技術正確性、技術深度、問題拆解、實務經驗、表達溝通、動機與團隊適配）各 1～5 分，對照每題的好答案訊號與警訊；報告只列最弱 2～3 個維度並附例證與練習建議",w:"③ 面試報告 → 弱點分析"},
+{t:"反問環節計分",b:"沒有反問環節",a:"每場最後固定反問；問到技術棧、開發流程、新人任務等加分，「沒有問題」或第一題就問休假加班扣分",w:"面試最後一題、弱點分析"}];
+const CLG={1:"v3：產品流程優化（11 項）",12:"v3.1：完整面試流程（依後端題庫，6 項）"};
 
 /* ===== 狀態 ===== */
-let U=null,D=null,V={v:"home"},I=null,rc=null;
-const UI={chooser:false,cl:null,showNew:true,form:false,ov:null,sus:false,sty:"親切",tts:true,carry:true,dres:{},dans:{}};
+let U=null,D=null,V={v:"home"},I=null,rc=null,silT=null;
+const UI={chooser:false,cl:null,showNew:true,form:false,ov:null,sus:false,sty:"親切",tts:true,carry:true,len:"std",why:false,dres:{},dans:{}};
 try{UI.showNew=localStorage.getItem(KV+"shownew")!=="0"}catch(e){}
 function blank(){return{consent:"",research:false,proj:[],rec:[],cv:[],st:[],ev:[],sus:null,live:null,sample:false}}
 function boot(){try{const s=JSON.parse(localStorage.getItem(KV+"session")||"null");if(s&&s.mail){U=s;D=JSON.parse(localStorage.getItem(KV+"u_"+s.mail)||"null")||blank()}}catch(e){U=null;D=null}}
@@ -113,53 +197,97 @@ const simRecs=p=>D.rec.filter(r=>r.pid===p.id&&r.type==="模擬");
 const sessions=p=>simRecs(p).filter(r=>r.res&&r.res.length).reverse();
 const curS=p=>{const ss=sessions(p);return ss.find(r=>r.id===V.rs)||ss[0]};
 const cvName=p=>{const c=p.cvId&&D.cv.find(x=>x.id===p.cvId);return c?c.name:(p.cvText?"未存成版本的履歷":"尚未提供履歷")};
-const mmss=t=>String(Math.floor(t/60)).padStart(2,"0")+":"+String(t%60).padStart(2,"0");
+const mmss=t=>String(Math.floor(t/60)).padStart(2,"0")+":"+String(Math.round(t)%60).padStart(2,"0");
 const cut=(s,n)=>{n=n||28;return!s?"":s.length>n?s.slice(0,n)+"⋯":s};
+const kindOf=p=>p.kind||(/後端|backend|back-end|伺服器/i.test(p.role||"")?"be":"gen"),lvlOf=p=>p.lvl||"mid";
+function has(t,k){t=t||"";if(/^[\x20-\x7E]+$/.test(k)&&/[A-Za-z]/.test(k)){const e=k.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&");return new RegExp("(^|[^A-Za-z0-9])"+e+"($|[^A-Za-z0-9])","i").test(t)}return t.toLowerCase().includes(k.toLowerCase())}
+const inc=(a,k)=>!!k&&a.toLowerCase().includes(String(k).toLowerCase());
 function NB(n){return UI.showNew?`<span class="nb" data-a="cl" data-i="${n}" title="本版新增：${CL[n].t}">新 ${n}</span>`:""}
 function NC(){return UI.showNew?" nwc":""}
 function toast(t){const e=$("#toast");if(!e)return;e.textContent=t;e.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>{e.style.display="none"},4500)}
 
-/* ===== AI 示範邏輯（正式版由後端呼叫 AI） ===== */
-function matchOf(jd,cv){const l=s=>(s||"").toLowerCase(),h=KW.filter(k=>l(jd).includes(l(k))),c=h.filter(k=>l(cv).includes(l(k)));return{match:h.length?Math.round(40+55*c.length/h.length):60,gaps:h.filter(k=>!c.includes(k))}}
-function diagnose(p,cv){const m=matchOf(p.jd,cv);return{match:m.match,gaps:m.gaps,pq:[...m.gaps.slice(0,2).map(g=>`請說明你在「${g}」方面的實際經驗與成果`),"你如何量化自己的工作成果？","舉一個跨部門意見不同、你如何取得共識的例子"]}}
-function suggest(cv,gaps){const R=[[/協作|合作|整合|跨部門/,"主導設計、工程、客服 3 個團隊的需求整合，專案提前 2 週上線，轉換率提升 15%"],[/報表|Excel|Python|自動化/,"以 Python 自動化 5 份週報，每月節省約 20 小時人工整理"],[/專案|管理|規劃/,"負責 8 個專案的時程與風險管理，準時交付率 95%"]],out=[];
-(cv||"").split("\n").forEach((l,li)=>{const t=l.replace(/^[・•\-\s]+/,"").trim();if(!t||/\d/.test(t))return;const r=R.find(x=>x[0].test(t));out.push({li,o:t,n:r?r[1]:t+"，成果：（請補上具體數字，例如提升 15%）",st:""})});
-(gaps||[]).slice(0,2).forEach(g=>out.push({li:-1,o:"（新增一行）",n:`使用 ${g} 建立 3 個分析資料集，查詢時間由 30 分鐘縮短至 5 分鐘`,st:""}));return out}
+/* ===== 履歷診斷（示範邏輯） ===== */
+function techGaps(p){const jd=TECH.filter(k=>has(p.jd,k)),cv=TECH.filter(k=>has(p.cvText||"",k));return jd.filter(k=>!cv.includes(k)&&!(k==="Go"&&cv.includes("Golang"))&&!(k==="Golang"&&cv.includes("Go")))}
+function matchOf(p,cv){const L=kindOf(p)==="be"?TECH:KW,h=L.filter(k=>has(p.jd,k)),c=h.filter(k=>has(cv,k));return{match:h.length?Math.round(40+55*c.length/h.length):60,gaps:h.filter(k=>!c.includes(k))}}
+function diagnose(p,cv){const m=matchOf(p,cv),tmp=Object.assign({},p,{cvText:cv}),C=compose(tmp,1,null,"std"),pq=C.qs.filter(q=>q.src!=="通用"&&q.st!==7).map(q=>q.q);
+return{match:m.match,gaps:m.gaps,pq:(pq.length?pq:[]).concat(C.qs.filter(q=>q.must&&q.st!==7).map(q=>q.q)).slice(0,5)}}
+function suggest(cv,gaps){const R=[[/API|後端|開發/,"使用 FastAPI 開發 12 支會員與訂單 API，平均回應時間由 800ms 降至 200ms"],[/MySQL|Redis|查詢|資料庫/,"調整 MySQL 索引並以 Redis 快取熱門資料，查詢時間縮短 70%"],[/部署|GCP|Docker|CI/,"以 Docker 與 GitHub Actions 建立 CI/CD，部署時間由 30 分鐘縮短到 5 分鐘"],[/協作|合作|整合|跨部門/,"主導設計、工程、客服 3 個團隊的需求整合，專案提前 2 週上線，轉換率提升 15%"],[/報表|Excel|Python|自動化/,"以 Python 自動化 5 份週報，每月節省約 20 小時人工整理"],[/專案|管理|規劃/,"負責 8 個專案的時程與風險管理，準時交付率 95%"]],out=[];
+(cv||"").split("\n").forEach((l,li)=>{const t=l.replace(/^[・•\-\s]+/,"").trim();if(!t||/\d/.test(t.replace(/^\d+\s*年/,"")))return;const r=R.find(x=>x[0].test(t));out.push({li,o:t,n:r?r[1]:t+"，成果：（請補上具體數字，例如提升 15%）",st:""})});
+(gaps||[]).slice(0,2).forEach(g=>out.push({li:-1,o:"（新增一行）",n:`使用 ${g} 實作（專案名稱），成果：（請補上數字）`,st:""}));return out}
 function applied(p){const L=(p.cvText||"").split("\n"),add=[];(p.sug||[]).forEach(s=>{if(s.st!=="ok")return;if(s.li<0||s.li>=L.length)add.push("・"+s.n);else{const pre=(L[s.li].match(/^[・•\-\s]+/)||[""])[0];L[s.li]=pre+s.n}});return L.concat(add).join("\n")}
-function grade(q,a){a=(a||"").trim();const L=a.replace(/\s/g,"").length,sents=a.split(/[。！？!?；;\n，,]/).map(s=>s.trim()).filter(Boolean);
-const nums=a.match(/\d+(\.\d+)?\s*(%|％|小時|分鐘|週|天|個|倍|萬|次|人|位|份|年|月)?/g)||[];
-const conn=["首先","接著","然後","最後","結果","因此","所以","當時","我負責","我的做法","後來"].filter(w=>a.includes(w));
-const kw=(q.k||[]).filter(Boolean),hit=kw.filter(w=>a.toLowerCase().includes(String(w).toLowerCase()));
-const d={具體性:L?Math.min(25,Math.round(5+L/4)):0,量化數據:L?(nums.length?Math.min(25,14+nums.length*4):4):0,結構:L?Math.min(25,7+conn.length*6):0,切題:L?(kw.length?Math.min(25,10+hit.length*8):17):0},ev=[];
-if(!L)ev.push("沒有作答");else{
-ev.push(L<40?`回答約 ${L} 字，偏短，缺少情境與細節`:`回答約 ${L} 字，篇幅足夠 ✓`);
-const nn=sents.find(s=>!/\d/.test(s)&&s.length>=6)||sents[0];
-ev.push(nums.length?`「${cut(sents.find(s=>/\d/.test(s)))}」有具體數字 ✓`:`你說「${cut(nn)}」→ 沒有具體數字（規模、時間、百分比）`);
-ev.push(conn.length?`使用了「${conn.slice(0,3).join("、")}」，結構清楚 ✓`:"沒有「當時、我的做法、結果」這類轉折，缺少「情境→行動→結果」的結構");
-if(kw.length)ev.push(hit.length?`有回應題目重點：${hit.join("、")} ✓`:`沒有提到題目重點：${kw.slice(0,3).join("、")}`)}
-return{s:d.具體性+d.量化數據+d.結構+d.切題,d,ev}}
-function buildQs(p,n,prev){const g=(p.dx&&p.dx.gaps)||[];let q=[];
-q.push(n>1?{q:"請分享一次最讓你有成就感的專案，以及你在其中的具體貢獻。",t:"自我介紹",k:["專案","貢獻","成果"],f:"如果重來一次，你會改進什麼？",m:"當時我主導網站改版，協調 3 個團隊，結果提前 2 週上線、轉換率提升 15%；重來一次我會更早建立風險清單。"}
-:{q:`請用一分鐘自我介紹，並說明為什麼想應徵${p.co}的${p.role}。`,t:"自我介紹",k:["經驗","擅長",p.role],f:"你的經歷中，哪一段最能證明你勝任這個職位？",m:"我有 3 年專案管理經驗，擅長整合跨部門需求。最近一次用 Python 自動化報表，每月為團隊省下約 20 小時，這也是我想應徵這個職位的原因。"});
-g.slice(0,2).forEach(x=>q.push({q:`職缺需要「${x}」，請舉一個你的實際經驗並說明成果。`,t:"專業能力",k:[x],f:"這個成果你是怎麼衡量的？",m:`當時我負責會員報表，我的做法是運用 ${x} 建立 3 個資料集，結果查詢時間從 30 分鐘降到 5 分鐘。`}));
-if(!g.length)q.push({q:"請舉例說明你如何用數據說服團隊。",t:"量化成果",k:["數據","結果","提升","降低"],f:"最後的結果如何？",m:"當時團隊對流程調整有疑慮，我整理三個月的使用數據並提出建議，結果採用後錯誤率下降 30%。"});
-q.push({q:"為什麼想離開目前（或上一份）工作？",t:"動機與地雷題",k:["成長","目標","挑戰","學習"],f:"如果新主管的風格和前主管很像，你會怎麼調整？",m:"我想把分析能力放到更核心的產品決策上；前公司給了我很好的基礎，這個職位的挑戰和我的成長目標一致。"});
-q.push({q:"請分享一次跨部門意見不同的經驗，你如何處理？",t:"跨部門溝通",k:["溝通","協調","衝突","共識"],f:"如果對方始終不同意，你會怎麼做？",m:"當時設計和工程對時程有衝突，我先整理雙方需求，接著召開協調會議，最後達成共識，專案提前 2 週上線。"});
-if(p.bad)q.splice(2,0,{q:"（不當提問）你有打算結婚或生小孩嗎？",t:"不當提問應對",k:["工作","專注","表現","目標"],f:"",m:"我理解您想了解我的穩定度。我的規劃是專注在這個職位的表現，也很樂意聊聊我的工作目標。"});
-if(p.sal)q.push({q:"你的期望薪資是多少？",t:"薪資談判",k:["行情","範圍","經驗","福利"],f:"我們預算略低於這個範圍，你可以接受嗎？",m:"依據我的經驗與市場行情，期望範圍是 X 到 Y；我也重視成長機會與整體條件，願意進一步討論。"});
-(p.bank||[]).slice(-2).forEach(b=>q.push({q:b.q,t:"真實面試題",k:[],f:"可以舉一個具體例子嗎？",m:"建議用「情境→任務→行動→結果」回答，並補上具體數字。",src:"真實面試"}));
-if(prev){const w=[...prev.res].sort((a,b)=>a.s-b.s).slice(0,2).map(x=>({q:x.q,t:x.t,k:x.k||[],f:"這次請補上具體數字與結果，能再說得更完整嗎？",m:x.m,src:"上次弱點"}));q=[...w,...q.filter(z=>!w.some(y=>y.q===z.q))]}
-return q}
-function tagStat(p){const m={};sessions(p).slice().reverse().forEach(r=>{const by={};r.res.forEach(x=>{(by[x.t]=by[x.t]||[]).push(x.s)});Object.entries(by).forEach(([t,v])=>{(m[t]=m[t]||[]).push({id:r.id,avg:Math.round(v.reduce((a,b)=>a+b,0)/v.length)})})});
+
+/* ===== 出題：完整面試流程 ===== */
+function planOf(kind,len,lvl){if(kind==="be")return len==="quick"?{1:1,2:1,3:1,4:1,5:1,6:1,7:1}:lvl==="jr"?{1:2,2:4,3:2,4:1,5:2,6:1,7:1}:{1:2,2:3,3:2,4:2,5:2,6:1,7:1};return len==="quick"?{1:1,5:2,6:1,7:1}:{1:2,5:3,6:3,7:1}}
+function fill(q,p){const r=s=>String(s).replace(/\{co\}/g,p.co).replace(/\{role\}/g,p.role);return Object.assign({},q,{q:r(q.q),m:r(q.m||""),f:(q.f||[]).map(r),gs:(q.gs||[]).map(g=>g.map(r))})}
+function gapQ(t,kind){return kind==="be"?mk("GAP-"+t,2,"a",`職缺提到 ${t}，你目前的了解有多少？如果入職要用，你會怎麼追上？`,[`你覺得 ${t} 和你熟悉的技術各適合什麼情境？`],[["具體學習方法","官方文件","文件","教學","小專案","範例","請教"],["連結現有經驗","類似","和我","跟我","熟悉","重寫"]],[],[D_EXP,D_COM,D_MOT],`我目前只看過 ${t} 的基本教學。我會先讀官方文件，用 ${t} 重寫一個熟悉的小型服務來比較差異，並請團隊同事 review。`,{src:"技能落差",pri:1,gapt:t})
+:mk("GAP-"+t,5,"a",`職缺需要「${t}」，請舉一個你的實際經驗並說明成果。`,["這個成果你是怎麼衡量的？"],[["具體實例","當時","有一次","專案"],["量化成果","%","小時","倍"]],[],[D_EXP,D_COM],`當時我負責（專案），我的做法是運用 ${t}，結果（請補上數字）。`,{src:"技能落差",pri:1,gapt:t})}
+function compose(p,n,prev,len){const kind=kindOf(p),lvl=lvlOf(p),plan=planOf(kind,len,lvl),total=Object.values(plan).reduce((a,b)=>a+b,0),cap=Math.floor(total/3);
+const bank=kind==="be"?BE:GEN,okLv=q=>q.lv==="a"||q.lv===(lvl==="jr"?"j":"m");
+const gaps=kind==="be"?techGaps(p):((p.dx&&p.dx.gaps)||[]);
+let cus=gaps.slice(0,kind==="be"?1:2).map(g=>gapQ(g,kind));
+bank.filter(q=>q.jd&&okLv(q)&&q.jd.some(k=>has(p.jd,k))).forEach(q=>cus.push(Object.assign({},q,{src:"客製"})));
+cus.sort((a,b)=>(a.pri||5)-(b.pri||5));
+let out=[],cc=0;const musts={},room={},picked={};
+Object.keys(plan).map(Number).forEach(st=>{musts[st]=bank.filter(q=>q.st===st&&q.must&&okLv(q)).slice(0,plan[st]);room[st]=st===7?0:plan[st]-musts[st].length;picked[st]=[]});
+cus.forEach(q=>{if(cc<cap&&room[q.st]>0&&!musts[q.st].some(m=>m.id===q.id)&&!Object.values(picked).some(a=>a.some(x=>x.id===q.id))){picked[q.st].push(q);room[q.st]--;cc++}});
+Object.keys(plan).map(Number).sort((a,b)=>a-b).forEach(st=>{const k=plan[st];
+if(st===7){out.push(Object.assign({},RV,{src:"通用"}));return}
+const sel=musts[st].map(q=>Object.assign({},q,{src:"通用"})),cSel=picked[st];
+let pool=bank.filter(q=>q.st===st&&!q.must&&(!q.jd||q.gen)&&okLv(q)&&!cSel.some(c=>c.id===q.id));
+if(kind==="be"&&st===4&&!cSel.some(c=>c.sd))pool=[sdQ(lvl,n),...pool];
+const slots=k-sel.length-cSel.length,gSel=[],off=pool.length?((n-1)*Math.max(1,slots))%pool.length:0;
+for(let j=0;j<pool.length&&gSel.length<slots;j++)gSel.push(Object.assign({},pool[(off+j)%pool.length],{src:"通用"}));
+out.push(...sel,...gSel,...cSel)});
+const before7=()=>{const r=out.findIndex(o=>o.st===7);return r<0?out.length:r};
+const swap=(nq,sts)=>{const idx=out.findIndex(o=>o.src==="通用"&&!o.must&&o.st!==7&&(!sts||sts.includes(o.st)));if(idx>=0){nq.st=nq.st||out[idx].st;out[idx]=nq}else out.splice(before7(),0,nq)};
+if(prev){prev.res.filter(x=>x.st!==7&&!x.must).sort((a,b)=>a.s-b.s).slice(0,2).forEach(x=>{if(out.some(o=>o.id===x.id))return;const base=BANKQ.find(b=>b.id===x.id)||{id:x.id,st:x.st,q:x.q,f:x.f||[],gs:x.gs||[],rf:x.rf||[],dims:x.dims||[D_EXP,D_COM],m:x.m,comp:x.comp};swap(Object.assign({},base,{src:"上次弱點"}),[x.st])})}
+(p.bank||[]).slice(-2).forEach(b=>{if(out.some(o=>o.q===b.q))return;swap(mk("RQ-"+hsh(b.q),0,"a",b.q,["可以舉一個具體的例子嗎？"],[["具體實例","當時","有一次","之前"],["說明結果","結果","最後","%"]],[],[D_EXP,D_COM],"建議用「情境→任務→行動→結果」回答，並補上具體數字。",{src:"真實面試"}),[6,5])});
+out.forEach(o=>{if(!o.st)o.st=6});
+if(p.bad)out.splice(before7(),0,mk("X-BAD",6,"a","（不當提問）你有打算結婚或生小孩嗎？",[],[["回到工作表現","工作","專注","表現","目標"],["態度得體","理解","了解"]],[],[D_COM],"我理解您想了解我的穩定度。我的規劃是專注在這個職位的表現，也很樂意聊聊我的工作目標。",{src:"不當提問"}));
+if(p.sal)out.splice(before7(),0,mk("X-SAL",6,"a","你的期望薪資是多少？",["我們預算略低於這個範圍，你可以接受嗎？"],[["有依據的範圍","行情","範圍","經驗"],["考量整體條件","福利","成長","整體"]],[],[D_COM,D_MOT],"依據我的經驗與市場行情，期望範圍是 X 到 Y；我也重視成長機會與整體條件，願意進一步討論。",{src:"薪資談判"}));
+const ord=[];[1,2,3,4,5,6,7].forEach(s=>out.filter(o=>o.st===s).forEach(o=>ord.push(o)));
+return{qs:ord.map(q=>fill(q,p)),plan,total,cap,cc,kind,lvl,len,gaps}}
+
+/* ===== 追問規則與評分 ===== */
+function gsHit(q,a){return(q.gs||[]).filter(g=>g.slice(1).some(k=>inc(a,k)))}
+function rfHit(q,a){return(q.rf||[]).filter(r=>r.length>1&&r.slice(1).some(k=>inc(a,k)))}
+function decideFU(q,a,layer,stdUsed,sty){const t=(a||"").trim(),L=t.replace(/\s/g,"").length;if(layer>=2||q.st===7)return null;
+if(L<40&&/不知道|不清楚|不確定|沒有用過|沒用過|沒碰過|不太懂/.test(t)&&!q._hint){q._hint=1;return{t:`沒關係，給你一個小提示：可以從「${(q.gs&&q.gs[0]||["基本概念"])[0]}」的角度想想看。`,why:"說「不知道」→ 給一個小提示再試一次（不扣態度分）"}}
+if(L>600)return{t:"謝謝你的說明，可以請你用一句話總結重點嗎？",why:"回答過長 → 禮貌打斷，請用一句話總結"};
+if((q.dims||[]).includes(D_ACC)&&rfHit(q,t).length&&!q._rf){q._rf=1;return{t:"你確定嗎？可以說說為什麼嗎？",why:"回答可能有誤（命中警訊）→ 不當場糾正，問一次看是否自行發現"}}
+if(q.st===6&&!/當時|那時|之前|有一次|曾經|上次|最近/.test(t)&&!q._ex){q._ex=1;return{t:"可以舉一個你實際遇到的例子嗎？",why:"行為題回答成假設情境 → 要求實際經驗"}}
+if(/我們/.test(t)&&!/我負責|我寫|我設計|我做|我的|我主導/.test(t)&&!q._we){q._we=1;return{t:"這部分你個人負責的是什麼？",why:"用「我們」描述 → 確認個人貢獻"}}
+if(L<25&&!q._ex){q._ex=1;return{t:"可以舉一個你實際遇到的例子嗎？",why:"回答太籠統 → 要求實例"}}
+const f=(q.f||[])[stdUsed];if(f){const strong=(q.gs||[]).length&&gsHit(q,t).length>=Math.ceil(q.gs.length/2)&&!rfHit(q,t).length&&L>=40;return{t:(sty==="嚴格"?"":"了解。")+f,why:strong?"回答完整 → 加壓一層，測試上限":"使用這題的標準追問",std:1}}
+return null}
+function grade(q,a,meta){a=(a||"").trim();meta=meta||{};const L=a.replace(/\s/g,"").length,sents=a.split(/[。！？!?；;\n，,]/).map(s=>s.trim()).filter(Boolean),dims=q.dims&&q.dims.length?q.dims:[D_EXP,D_COM];
+const sent=k=>sents.find(s=>inc(s,k))||sents[0],cl=v=>Math.max(1,Math.min(5,Math.round(v))),ev=[],d={};
+if(!L){dims.forEach(k=>d[k]=1);return{s:20,d,ev:["沒有作答"]}}
+if(q.st===7){const none=/^(沒有|沒問題|沒有問題)/.test(a),badF=/休假|加班|請假|薪水/.test(sents[0]||""),good=gsHit(q,a);const v=none?1:badF?2:good.length>=2?5:good.length?4:3;
+dims.forEach(k=>d[k]=v);ev.push(none?"⚠ 回答「沒有問題」，錯過展現興趣的機會":badF?`⚠ 第一個問題就問休假或加班（你問「${cut(sents[0],30)}」）`:good.length?`✓ 問到${good.map(g=>g[0]).join("、")}`:"問題偏一般，可以問技術棧、開發流程或新人前三個月的任務");return{s:Math.round(v/5*100),d,ev}}
+const gs=q.gs||[],hit=gsHit(q,a),miss=gs.filter(g=>!hit.includes(g)),rf=rfHit(q,a),ratio=gs.length?hit.length/gs.length:(L>60?.6:.3),nums=(a.match(/\d+(\.\d+)?/g)||[]).length;
+const cnt=ws=>ws.filter(w=>a.includes(w)).length,why=cnt(["因為","所以","取捨","比較","缺點","代價","相較","優點","適合","但"]),steps=cnt(["首先","接著","然後","最後","第一","第二","先","再"]);
+const me=/我負責|我寫|我設計|我做|我的做法|我先|我會|我主導/.test(a),story=/當時|有一次|之前|那時|最近/.test(a),onlyWe=/我們/.test(a)&&!me,sdMiss=q.sd&&gs[0]&&!hit.includes(gs[0]);
+const all={[D_ACC]:cl(1+ratio*4-(rf.length?2:0)-(meta.hint?1:0)),[D_DEP]:cl(1+Math.min(2,why)+(ratio>=.5?1:0)+(L>120?1:0)),[D_DEC]:cl(1+Math.min(3,steps)+(q.sd?(sdMiss?-1:1):0)),[D_EXP]:cl(1+(me?1:0)+Math.min(2,nums)+(story?1:0)-(onlyWe?1:0)),[D_COM]:cl(L<20?1:L<50?2:L>600?3:(steps||why)?5:4),[D_MOT]:cl(1+(inc(a,meta.co)||/產品|服務|客戶/.test(a)?2:0)+(/團隊|學習|成長|合作|希望|想/.test(a)?1:0)+(L>60?1:0))};
+dims.forEach(k=>d[k]=all[k]);
+hit.forEach(g=>ev.push(`✓ 有提到：${g[0]}`));miss.forEach(g=>ev.push(`✗ 沒提到：${g[0]}`));
+rf.forEach(r=>{const k=r.slice(1).find(x=>inc(a,x));ev.push(`⚠ 警訊：${r[0]}（你說「${cut(sent(k),30)}」）`)});
+if(sdMiss)ev.push("⚠ 沒有先釐清需求就開始設計（面試中不提示，記為弱點）");
+if(onlyWe)ev.push("用「我們」描述，看不出你個人的貢獻");
+if(dims.includes(D_EXP)&&!nums){const nn=sents.find(s=>s.length>=6)||sents[0];ev.push(`你說「${cut(nn)}」→ 沒有具體數字（規模、時間、百分比）`)}
+if(meta.hint)ev.push("需要提示才回答");if(L>600)ev.push("回答過長，建議先講結論");
+const vals=Object.values(d);return{s:Math.round(vals.reduce((x,y)=>x+y,0)/vals.length/5*100),d,ev}}
+function tagStat(p){const m={};sessions(p).slice().reverse().forEach(r=>{const by={};r.res.forEach(x=>{if(x.st===7)return;(by[x.t]=by[x.t]||[]).push(x.s)});Object.entries(by).forEach(([t,v])=>{(m[t]=m[t]||[]).push({id:r.id,avg:Math.round(v.reduce((a,b)=>a+b,0)/v.length)})})});
 const out={};Object.entries(m).forEach(([t,arr])=>{const last=arr[arr.length-1],was=arr.slice(0,-1).some(x=>x.avg<70);out[t]={avg:last.avg,hist:arr.map(x=>x.avg),st:last.avg>=70?(was?"已改善":"良好"):(p.drill&&p.drill[t]===last.id?"特訓中・待驗證":"待改善")}});return out}
 function chip(t,st){const c=st==="已改善"||st==="良好"?"g":st.indexOf("特訓")===0?"w":"";return`<span class="tag ${c}">${t?esc(t)+"・":""}${st}</span>`}
+const nd=v=>v>5?Math.max(1,Math.round(v/5)):v;
 
 /* ===== 語音 ===== */
-function spk(t){if(!HAS_TTS)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="zh-TW";speechSynthesis.speak(u)}catch(e){}}
+function spk(t){if(!HAS_TTS)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=/^[\x00-\x7F]+$/.test(t)?"en-US":"zh-TW";speechSynthesis.speak(u)}catch(e){}}
 function listen(btn,cb){if(!SR){toast("此瀏覽器不支援語音辨識，請改用文字輸入（建議使用電腦版 Chrome）");return}
 if(rc){try{rc.stop()}catch(e){}return}
 if(!navigator.onLine){toast("目前離線，語音辨識需要網路，請改用文字輸入");return}
-rc=new SR();rc.lang="zh-TW";rc.interimResults=false;if(btn)btn.classList.add("rec");
+rc=new SR();rc.lang="zh-TW";rc.interimResults=false;if(btn)btn.classList.add("rec");clearTimeout(silT);
 rc.onresult=e=>{cb(e.results[0][0].transcript)};
 rc.onerror=e=>{const m={"not-allowed":"麥克風權限被拒絕：請點網址列左側的圖示允許麥克風，或改用文字輸入","service-not-allowed":"麥克風權限被拒絕，請改用文字輸入","no-speech":"沒有聽到聲音，請靠近麥克風再試一次","audio-capture":"找不到麥克風裝置，請確認已連接","network":"語音辨識需要網路連線，請檢查網路或改用文字輸入"}[e.error];if(m)toast(m)};
 rc.onend=()=>{if(btn)btn.classList.remove("rec");rc=null};
@@ -167,24 +295,30 @@ try{rc.start()}catch(e){rc=null;if(btn)btn.classList.remove("rec")}}
 
 /* ===== 面試進行 ===== */
 function elapsed(){return(I.el||0)+(I.paused?0:Math.round((Date.now()-I.ts)/1000))}
-function say(t,c){if(!I)return;I.log.push({r:c,t,s:elapsed()});D.live=I;save();const ch=$("#chat");if(ch&&ch.append){const m=document.createElement("div");m.className="msg "+c;m.textContent=t;ch.append(m);ch.scrollTop=ch.scrollHeight}if(c==="ai"&&I.tts)spk(t)}
-function ask(){const g=$("#pg");if(g)g.textContent=`第 ${I.i+1} / ${I.q.length} 題`;say(I.q[I.i].q,"ai")}
-function startIv(){const p=P(V.id),n=simRecs(p).length+1,ss=sessions(p),prev=UI.carry&&ss.length?ss[0]:null;
-I={pid:p.id,q:buildQs(p,n,prev),i:0,a:[],ph:0,log:[],el:0,ts:Date.now(),n,sty:UI.sty,tts:UI.tts,paused:false};D.live=I;logEv("interview_start",{pid:p.id,n});render();
-say(I.sty==="嚴格"?`我是${p.co}的面試官。今天共 ${I.q.length} 題，請簡潔回答並提供具體例子。`:`你好，歡迎來到${p.co}的面試！今天共 ${I.q.length} 題，放輕鬆，就像聊天一樣。`,"ai");ask()}
-function sendAns(){if(!I||I.paused)return;const inp=$("#ans"),v=(inp&&inp.value||"").trim();if(!v)return;inp.value="";say(v,"me");const q=I.q[I.i];
-if(I.ph===0&&q.f){I.a[I.i]=v;I.ph=1;save();const f=I.sty==="嚴格"?q.f:"謝謝你的分享！"+q.f;setTimeout(()=>{if(I)say(f,"ai")},500);return}
-I.a[I.i]=I.ph?(I.a[I.i]||"")+" "+v:v;I.ph=0;I.i++;save();
-if(I.i<I.q.length)setTimeout(()=>{if(I)ask()},500);else setTimeout(()=>finishIv(false),500)}
-function finishIv(early){if(!I)return;const p=P(I.pid);let cnt=I.q.length;if(early)cnt=I.i+(I.a[I.i]?1:0);
+function say(t,c,why){if(!I)return;I.log.push({r:c,t,s:elapsed(),qi:I.i,why:why||""});D.live=I;save();const ch=$("#chat");if(ch&&ch.append){const m=document.createElement("div");m.className="msg "+c;m.textContent=t;if(why&&UI.why){const w=document.createElement("div");w.className="why";w.textContent="↳ AI 判斷："+why;m.append(w)}ch.append(m);ch.scrollTop=ch.scrollHeight}if(c==="ai"&&I.tts)spk(t)}
+function armSil(){if(!LIVE||!I)return;clearTimeout(silT);const i=I.i,l=I.layer;silT=setTimeout(()=>{if(I&&!I.paused&&!rc&&I.i===i&&I.layer===l&&!(($("#ans")||{}).value)&&!(I.nud||{})[i+"_"+l]){I.nud=I.nud||{};I.nud[i+"_"+l]=1;say("可以邊想邊說，不用一次想到完整答案。","ai","停頓超過 20 秒 → 提醒可以邊想邊說")}},20000)}
+function ask(){const q=I.q[I.i],ps=I.i>0?I.q[I.i-1].st:0;I.layer=0;
+if(q.st!==ps){say(`第 ${q.st} 階段・${STG[q.st]}`,"sys");render()}
+const g=$("#pg");if(g)g.textContent=`第 ${I.i+1} / ${I.q.length} 題`;say(q.q,"ai");armSil()}
+function startIv(){const p=P(V.id),n=simRecs(p).length+1,ss=sessions(p),prev=UI.carry&&ss.length?ss[0]:null,C=compose(p,n,prev,UI.len);
+I={pid:p.id,q:C.qs,i:0,layer:0,ans:[],fus:[],std:[],log:[],el:0,ts:Date.now(),n,sty:UI.sty,tts:UI.tts,paused:false,len:C.len,kind:C.kind,lvl:C.lvl,gaps:C.gaps,cap:C.cap,cc:C.cc,nud:{}};D.live=I;logEv("interview_start",{pid:p.id,n,len:C.len,q:C.qs.length});render();
+say(I.sty==="嚴格"?`我是${p.co}的面試官。今天的面試約 ${C.len==="quick"?15:30} 分鐘、${C.qs.length} 題，請簡潔回答並提供具體例子。`:`你好，歡迎來到${p.co}的面試！今天約 ${C.len==="quick"?15:30} 分鐘、${C.qs.length} 題，放輕鬆，就像聊天一樣。`,"ai");ask()}
+function sendAns(){if(!I||I.paused)return;const inp=$("#ans"),v=(inp&&inp.value||"").trim();if(!v)return;inp.value="";clearTimeout(silT);say(v,"me");const q=I.q[I.i];(I.ans[I.i]=I.ans[I.i]||[]).push(v);
+if(q.st===7){const none=/^(沒有|沒問題|沒有問題)/.test(v);setTimeout(()=>{if(!I)return;say(none?"好的，沒關係。":"謝謝你的問題。這部分公司簡介沒有寫到，可以在正式面試時再向團隊確認。","ai",none?"":"只回答公司簡介中有的資訊，不自行編造");say("今天的面試到這裡結束，謝謝你！稍後會產生面試報告。","ai");setTimeout(()=>finishIv(false),900)},500);return}
+const fu=decideFU(q,v,I.layer,I.std[I.i]||0,I.sty);
+if(fu){I.layer++;if(fu.std)I.std[I.i]=(I.std[I.i]||0)+1;(I.fus[I.i]=I.fus[I.i]||[]).push(fu);save();setTimeout(()=>{if(I){say(fu.t,"ai",fu.why);armSil()}},500);return}
+I.layer=0;I.i++;save();if(I.i<I.q.length)setTimeout(()=>{if(I)ask()},500);else setTimeout(()=>finishIv(false),500)}
+function buildRes(qs,ans,fus,co){return qs.map((q,i)=>{const A=ans[i]||[],a=A.join(" "),g=grade(q,a,{co,hint:q._hint});
+return{id:q.id,st:q.st,t:STG[q.st],q:q.q,f:q.f,gs:q.gs,rf:q.rf,dims:q.dims,comp:q.comp,must:q.must,sd:q.sd,m:q.m,src:q.src,a,turns:[{q:q.q,a:A[0]||""}].concat((fus[i]||[]).map((f,j)=>({q:f.t,why:f.why,a:A[j+1]||""}))),s:g.s,d:g.d,ev:g.ev}})}
+function finishIv(early){if(!I)return;clearTimeout(silT);const p=P(I.pid);let cnt=I.q.length;if(early)cnt=I.i+(I.ans[I.i]&&I.ans[I.i].length?1:0);
 try{if(HAS_TTS)speechSynthesis.cancel()}catch(e){}
 if(!cnt||!p){I=null;D.live=null;save();toast("尚未回答任何題目，本場不列入紀錄");render();return}
-const res=I.q.slice(0,cnt).map((q,i)=>{const g=grade(q,I.a[i]);return{q:q.q,t:q.t,k:q.k,a:I.a[i]||"",s:g.s,d:g.d,ev:g.ev,m:q.m,src:q.src||""}});
-const avg=Math.round(res.reduce((a,b)=>a+b.s,0)/res.length),dur=elapsed();
-const r={id:uid(),pid:p.id,date:today(),type:"模擬",score:avg,note:`第 ${I.n} 次完整面試｜${res.length} 題${early?"（提前結束）":""}`,res,log:I.log,dur,cv:cvName(p),
-tags:[I.sty==="嚴格"?"嚴格面試官":"親切面試官",p.bad?"不當提問應對":"",p.sal?"薪資談判":"",p.dx?"依履歷缺口追問":"",early?"提前結束":""].filter(Boolean)};
+const res=buildRes(I.q.slice(0,cnt),I.ans,I.fus,p.co),avg=Math.round(res.reduce((a,b)=>a+b.s,0)/res.length),dur=elapsed();
+const r={id:uid(),pid:p.id,date:today(),type:"模擬",score:avg,note:`第 ${I.n} 次完整面試｜${res.length} 題｜${I.len==="quick"?"快速 15 分鐘":"標準 30 分鐘"}${early?"（提前結束）":""}`,res,log:I.log,dur,cv:cvName(p),len:I.len,kind:I.kind,lvl:I.lvl,gaps:I.gaps,cap:I.cap,cc:I.cc,
+tags:[I.sty==="嚴格"?"嚴格面試官":"親切面試官",KIND[I.kind],LVL[I.lvl],p.bad?"不當提問應對":"",p.sal?"薪資談判":"",early?"提前結束":""].filter(Boolean)};
 D.rec.push(r);if(p.st===0)p.st=1;logEv("interview_finish",{pid:p.id,n:I.n,q:res.length,dur,early:!!early});
 I=null;D.live=null;V.step=2;V.rs=r.id;V.rt="ov";save();render()}
+if(LIVE)setInterval(()=>{const c=$("#clk");if(c&&I)c.textContent=mmss(elapsed())},1000);
 
 /* ===== PDF ===== */
 function loadPdf(){return new Promise((ok,no)=>{if(window.pdfjsLib)return ok(window.pdfjsLib);const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
@@ -199,33 +333,61 @@ L.forEach(l=>{const h=H.find(x=>l.replace(/\s/g,"")===x);if(h){cur=h;return}(S[c
 const p=P(V.id);p.secs={};Object.keys(S).forEach(k=>p.secs[k]=S[k].join("\n"));p.cvId=null;logEv("cv_parse",{pid:p.id});save();render()}catch(e){st.textContent="解析失敗："+(e&&e.message||e)+"。請改貼文字。"}}
 function collectSecs(p){const t=[...document.querySelectorAll(".sec")];t.forEach(x=>{p.secs[x.dataset.k]=x.value});return Object.keys(p.secs).map(k=>k+"\n"+p.secs[k]).join("\n")}
 
-/* ===== 範例資料 ===== */
-function makeSess(p,n,ans,date,dur){const q=buildQs(p,n,null),res=q.slice(0,ans.length).map((x,i)=>{const g=grade(x,ans[i]);return{q:x.q,t:x.t,k:x.k,a:ans[i],s:g.s,d:g.d,ev:g.ev,m:x.m,src:""}}),log=[];let t=0;
-res.forEach(x=>{log.push({r:"ai",t:x.q,s:t});t+=15;log.push({r:"me",t:x.a,s:t});t+=Math.round(dur/res.length)-15});
-return{id:uid(),sample:true,pid:p.id,date,type:"模擬",score:Math.round(res.reduce((a,b)=>a+b.s,0)/res.length),note:`第 ${n} 次完整面試｜${res.length} 題`,res,log,dur,tags:["親切面試官","依履歷缺口追問"],cv:"通用版 v1"}}
-function seedSample(){const mk=o=>Object.assign({id:uid(),sample:true,intro:"",bad:0,sal:0,bank:[],drill:{}},o);
-const p1=mk({co:"星河科技",role:"資料分析師",jd:"負責使用者行為分析與儀表板建置，需熟悉 SQL、Python，能以數據提出產品優化建議。",date:"2026-12-08",st:1});
-const p2=mk({co:"藍鯨數位",role:"產品企劃",jd:"規劃產品藍圖，進行市場與使用者研究，跨部門溝通與專案推動。",date:"2026-12-15",st:0});
-const p3=mk({co:"晨光顧問",role:"專案經理",jd:"負責客戶專案時程、預算與風險管理，需具備溝通協調與專案管理經驗。",date:"2026-11-20",st:1,bank:[{q:"專案時程延誤時，你會怎麼跟客戶溝通？",date:"2026-11-20",stage:"一面"},{q:"你如何管理專案預算？",date:"2026-11-20",stage:"一面"}]});
-const cv={id:uid(),sample:true,name:"通用版 v1",text:SC,date:"2026-11-01"};
-p1.cvText=SC;p1.cvId=cv.id;p1.dx=diagnose(p1,SC);p1.sug=suggest(SC,p1.dx.gaps);
-const s1=makeSess(p1,1,["我做過專案管理，也會一點 Python，想試試看資料分析。","我有用過一點 SQL，主要是查資料。","我會看一些報表上的數字。","因為想換個環境。","我會跟大家好好溝通。"],"2026-11-10",420);
-const s2=makeSess(p1,2,["當時我主導網站改版專案，首先整合 3 個團隊需求，接著用 Python 自動化 5 份週報，每月節省 20 小時，結果專案提前 2 週上線。","當時我負責會員報表，我的做法是用 SQL 建立 3 個資料集，結果查詢時間從 30 分鐘降到 5 分鐘。","我會先看轉換率等數據，當時發現結帳頁流失 40%，我的做法是提出改版建議，結果流失率降到 25%。","我想把分析能力放到更核心的產品決策上，這個職位的挑戰和我的成長目標一致。","當時設計和工程對時程有衝突，我先整理雙方需求，接著召開協調會議，最後達成共識，專案提前 2 週上線。"],"2026-11-17",540);
-p1.viewed=true;
+/* ===== 範例資料：一場完整的後端面試 ===== */
+const S1={"BE-OP-01":["我畢業後在一家電商公司做後端，主要寫 API，然後我又做了一些維護的工作。","主要是會員那一塊的 API。"],
+"BE-OP-02":["因為星河科技是很有名的公司，福利也不錯，我覺得在這裡工作會很穩定。","應該是資料量很大吧，我還沒有深入研究。"],
+"BE-TB-02":["GET 是拿資料，POST 是新增，PUT 跟 PATCH 都是更新。冪等我不太確定。","401 是沒登入吧，503 好像是伺服器忙碌，其他我不太記得。","喔，冪等是送很多次結果都一樣吧？重試的時候應該比較安全。"],
+"BE-TB-05":["Python 有 GIL，所以 thread 沒辦法真的平行處理。我覺得用 async 應該一定比較快。","因為 async 不用等待，所以應該都會比較快吧。"],
+"GAP-Go":["Go 我沒有用過。","可能會上網找教學影片來學。"],
+"BE-DB-04":["索引就像書的目錄，可以加快查詢。常用來查詢的欄位可以建。","順序應該有差，但我不確定為什麼。"],
+"BE-DB-01":["關聯式資料庫比較正式，NoSQL 比較新。公司裡都用 MySQL，因為大家都用。","嗯……應該是訂單需要交易吧，NoSQL 適合什麼我不太確定。"],
+"BE-CU-GQL":["GraphQL 我沒用過，只知道前端可以自己選要的欄位。","不太清楚，可能限制查詢次數吧。"],
+"BE-CU-EVT":["我會用很多台機器，前面放負載平衡，資料直接存到資料庫。","就再加機器。"],
+"BE-PJ-01":["我們做了電商網站改版，把整個訂單系統重寫，效能變好很多。","我主要負責訂單查詢的 API，回應時間大概快了一半。"],
+"BE-CU-OPS1":["我會先去看 log，找出是哪裡報錯，然後再去修正程式，確認錯誤率有沒有降下來。","嗯……可以先看是不是剛剛有新版上線，有的話先退回上一版。","會看錯誤率跟回應時間。通知的部分我之前公司沒有規定。"],
+"BH-01":["我應該會先跟 PM 溝通，了解他的想法。","有一次 PM 想在結帳頁加很多欄位，我覺得會影響效能，後來開會討論，最後拿掉了兩個欄位。"],
+"RV":["請問加班多嗎？"]};
+const S2={"BE-OP-01":["我有 2 年後端經驗，主力是 Python 與 FastAPI。代表專案是電商訂單 API，我負責查詢效能調校，把回應時間從 800ms 降到 200ms。接下來希望在高流量服務累積系統設計與穩定性的經驗。","我負責訂單查詢與結帳 API，包含索引設計和 Redis 快取。"],
+"BE-OP-02":["我看到星河科技的產品要即時處理大量廣告事件，這和我做過的效能調校經驗相關；我想在更大的流量規模下累積系統設計經驗。","我覺得是尖峰流量時不掉資料，同時讓客戶的報表查詢夠快。"],
+"BE-TB-06":["兩個請求同時讀到庫存 1，都判斷可以購買，各自扣減後就超賣了。","悲觀鎖最安全但會降低併發；樂觀鎖用版本號，衝突時重試，適合衝突少的情況；搶購這種高流量我會用佇列排隊處理，代價是使用者要等結果。"],
+"BE-TB-02":["GET 讀取、POST 新增、PUT 整筆取代、PATCH 部分更新。冪等是同樣的請求送多次結果相同，例如 PUT 更新地址送兩次結果一樣，但 POST 建立訂單送兩次會多一筆。","401 是沒有登入，403 是登入了但沒有權限；502 是閘道收到上游的錯誤回應，503 是服務暫時無法處理。","因為網路逾時時，呼叫端不知道對方有沒有處理成功，冪等才能安全重試，所以建立訂單我會帶冪等鍵。"],
+"GAP-Go":["Go 我目前只寫過官方教學的範例。我的做法是先讀官方文件，接著用 Go 重寫一個我熟悉的小型 API 來比較，並請團隊的資深同事 review。","Go 適合高併發、需要低延遲的服務；Python 開發快，適合資料處理和快速迭代的 API。"],
+"BE-DB-06":["我會先用 APM 確認時間花在資料庫，接著查慢查詢紀錄找出是哪支 SQL，再用 EXPLAIN 看執行計畫，確認有沒有用到索引、掃描了多少資料量，最後補索引或改寫查詢。","我會看 type 是不是全表掃描、key 用了哪個索引，以及 rows 預估掃描的筆數。"],
+"BE-DB-05":["ACID 是原子性、一致性、隔離性、持久性。以轉帳為例，扣款與入帳要一起成功或失敗。隔離層級越高越安全但併發越低，MySQL 預設是 Repeatable Read。","髒讀是讀到別人還沒提交的資料，不可重複讀是同一交易內兩次讀到不同值，幻讀是兩次查詢的筆數不同。"],
+"BE-CU-GQL":["REST 簡單、好快取，適合資源明確的 API；GraphQL 讓前端選需要的欄位，適合畫面多變、要組合多個資料來源的情境。我沒有實際用過 GraphQL，這是看文件理解的。","可以限制查詢深度和複雜度，並設定逾時與限流。"],
+"BE-CU-EVT":["我會先確認需求：每秒大概多少事件、可以接受多少延遲、資料要保存多久。假設尖峰每秒 5 萬筆，我會讓 API 只負責驗證後寫進 Kafka，後面的 worker 批次寫入資料庫，報表另外做彙總表。","流量翻 10 倍時，API 和 worker 都可以水平擴展，佇列分區也要增加；瓶頸通常在寫入資料庫，所以改成批次寫入。","資料庫掛了的時候，事件先留在佇列裡不會掉，等資料庫恢復再補寫，同時告警通知值班人員。"],
+"BE-PJ-01":["當時我負責電商的訂單查詢 API，回應時間常超過 800ms。我先用 APM 找出瓶頸是兩支慢查詢，接著補了複合索引，熱門資料改用 Redis 快取，結果平均回應時間降到 200ms。","索引調整和 Redis 快取都是我寫的，數字是用 APM 的 p95 比較改版前後一週。如果重做，我會更早建立效能監控，而不是等使用者反應。"],
+"BE-CU-OPS1":["我會先確認影響範圍，看錯誤率和受影響的 API。如果剛好有新版上線，就先回滾止血，接著在值班群組通報，再看 log 和監控查根因，事後寫檢討報告。","使用者這段時間會先回到舊版，所以影響會降到最低，我也會在狀態頁公告。","我會看錯誤率、p95 回應時間、流量和資料庫連線數；通報對象是值班主管和相關服務的負責人。"],
+"BH-02":["當時專案要導入 Redis，我之前沒用過。我的做法是先讀官方文件，接著做一個小專案驗證快取策略，再請教有經驗的同事 review，兩週內就上線了。","最近在學 Go，用它重寫一個小型 API 來練習。"],
+"RV":["請問團隊目前的技術棧和開發流程是什麼？新人入職前三個月主要會負責哪些工作？"]};
+function simulate(p,n,script,date){const C=compose(p,n,null,"std"),qs=C.qs.map(q=>Object.assign({},q)),ans=[],fus=[],log=[];let t=0;
+qs.forEach((q,i)=>{if(i===0||qs[i-1].st!==q.st)log.push({r:"sys",t:`第 ${q.st} 階段・${STG[q.st]}`,s:t,qi:i});
+log.push({r:"ai",t:q.q,s:t,qi:i});t+=8;const sc=script[q.id]||["（這題沒有回答）"];let layer=0,std=0,k=0;ans[i]=[];fus[i]=[];
+const answer=x=>{ans[i].push(x);t+=12+Math.round(x.length*0.5);log.push({r:"me",t:x,s:t,qi:i});t+=5};answer(sc[k++]);
+if(q.st===7){log.push({r:"ai",t:"謝謝你的問題。這部分公司簡介沒有寫到，可以在正式面試時再向團隊確認。",s:t,qi:i,why:"只回答公司簡介中有的資訊，不自行編造"});return}
+while(layer<2){const fu=decideFU(q,ans[i][ans[i].length-1],layer,std,"親切");if(!fu||k>=sc.length)break;layer++;if(fu.std)std++;fus[i].push(fu);log.push({r:"ai",t:fu.t,s:t,qi:i,why:fu.why});t+=6;answer(sc[k++])}});
+const res=buildRes(qs,ans,fus,p.co);return{id:uid(),sample:true,pid:p.id,date,type:"模擬",score:Math.round(res.reduce((a,b)=>a+b.s,0)/res.length),note:`第 ${n} 次完整面試｜${res.length} 題｜標準 30 分鐘`,res,log,dur:t,tags:["親切面試官",KIND.be,LVL.mid],cv:"後端通用版 v1",len:"std",kind:"be",lvl:"mid",gaps:C.gaps,cap:C.cap,cc:C.cc}}
+function seedSample(){const mk2=o=>Object.assign({id:uid(),sample:true,intro:"",bad:0,sal:0,bank:[],drill:{}},o);
+const p1=mk2({co:"星河科技",role:"後端工程師",kind:"be",lvl:"mid",jd:"（虛構範例）星河科技是 AI 行銷 SaaS 平台。工作內容：負責高流量廣告事件服務的開發與系統設計、參與 code review、改善監控與事故處理流程、效能調校，需輪值 on-call。必要條件：2 年以上後端經驗；Python 或 Go；RESTful 或 GraphQL API 設計；MySQL、Redis。加分：大型分散式系統、Prometheus、GCP、CI/CD。",date:"2026-12-08",st:1});
+const p2=mk2({co:"藍鯨數位",role:"產品企劃",kind:"gen",lvl:"mid",jd:"規劃產品藍圖，進行市場與使用者研究，跨部門溝通與專案推動。",date:"2026-12-15",st:0});
+const p3=mk2({co:"晨光顧問",role:"專案經理",kind:"gen",lvl:"mid",jd:"負責客戶專案時程、預算與風險管理，需具備溝通協調與專案管理經驗。",date:"2026-11-20",st:1,bank:[{q:"專案時程延誤時，你會怎麼跟客戶溝通？",date:"2026-11-20",stage:"一面"},{q:"你如何管理專案預算？",date:"2026-11-20",stage:"一面"}]});
+const cv={id:uid(),sample:true,name:"後端通用版 v1",text:SC_BE,date:"2026-11-01"};
+p1.cvText=SC_BE;p1.cvId=cv.id;p1.dx=diagnose(p1,SC_BE);p1.sug=suggest(SC_BE,p1.dx.gaps);p1.viewed=true;
 D.proj.push(p1,p2,p3);D.cv.push(cv);
-D.st.push({id:uid(),sample:true,name:"跨部門專案推動",comp:"跨部門合作",text:"【情境】網站改版需整合設計、工程、客服三方\n【任務】8 週內上線\n【行動】建立每週同步會議與需求優先順序表\n【結果】提前 2 週上線，轉換率提升 15%",date:"2026-11-05"},
-{id:uid(),sample:true,name:"報表自動化",comp:"成就經驗",text:"【情境】每週報表需人工整理 6 小時\n【任務】降低重複作業\n【行動】用 Python 自動化 5 份週報\n【結果】每月節省約 20 小時",date:"2026-11-05"});
-D.rec.push(s1,s2,{id:uid(),sample:true,pid:p3.id,date:"2026-11-20",type:"真實",score:null,stage:"一面",result:"進入下一關",qs:p3.bank.map(b=>b.q),note:"主管提問為主，著重時程管理",res:[]});
+D.rec.push(simulate(p1,1,S1,"2026-11-10"),simulate(p1,2,S2,"2026-11-17"));
+D.st.push({id:uid(),sample:true,name:"訂單 API 效能調校",comp:"成就經驗",text:"【情境】訂單查詢 API 常超過 800ms\n【任務】改善結帳高峰的體驗\n【行動】用 APM 找出慢查詢，補複合索引並加上 Redis 快取\n【結果】p95 降到 200ms",date:"2026-11-05"},
+{id:uid(),sample:true,name:"結帳頁欄位的規格討論",comp:"衝突處理",text:"【情境】PM 想在結帳頁加 6 個欄位\n【任務】兼顧需求與轉換率\n【行動】用流失率數據說明影響，提出分階段收集的方案\n【結果】欄位減為 2 個，轉換率維持",date:"2026-11-05"});
+D.rec.push({id:uid(),sample:true,pid:p3.id,date:"2026-11-20",type:"真實",score:null,stage:"一面",result:"進入下一關",qs:p3.bank.map(b=>b.q),note:"主管提問為主，著重時程管理",res:[]});
 D.sample=true}
 function clearSample(){["proj","cv","st","rec"].forEach(k=>{D[k]=D[k].filter(x=>!x.sample)});if(D.live&&!P(D.live.pid))D.live=null;D.sample=false}
 
 /* ===== 研究資料 ===== */
-function ms(){const has=e=>D.ev.some(x=>x.e===e);return[["建立專案","create_project"],["履歷診斷","dx"],["完成模擬面試","interview_finish"],["查看報告","view_report"],["弱點特訓","drill"],["填寫問卷","survey"]].map(([l,e])=>({l,done:has(e)}))}
+function ms(){const hv=e=>D.ev.some(x=>x.e===e);return[["建立專案","create_project"],["履歷診斷","dx"],["完成模擬面試","interview_finish"],["查看報告","view_report"],["弱點特訓","drill"],["填寫問卷","survey"]].map(([l,e])=>({l,done:hv(e)}))}
 function firstFlow(){const a=D.ev.find(x=>x.e==="consent"||x.e==="login"),b=D.ev.find(x=>x.e==="interview_finish");return a&&b?Math.max(1,Math.round((new Date(b.t)-new Date(a.t))/60000)):null}
 function hsh(s){let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))>>>0;return"P-"+h.toString(16).toUpperCase().slice(0,6)}
 
 /* ===== 畫面 ===== */
-function bar(){return`<div class="topbar"><b data-a="home">AI 求職教練<small>CAREER COACH</small></b><span class="tag" style="background:var(--nw);color:#fff;margin:0">v3</span><span class="sp"></span><span class="mut nm">${esc(U.name)}</span><div class="av">${esc(U.name[0])}</div><button class="btn g s" data-a="logout">登出</button></div>`}
+function bar(){return`<div class="topbar"><b data-a="home">AI 求職教練<small>CAREER COACH</small></b><span class="tag" style="background:var(--nw);color:#fff;margin:0">v3.1</span><span class="sp"></span><span class="mut nm">${esc(U.name)}</span><div class="av">${esc(U.name[0])}</div><button class="btn g s" data-a="logout">登出</button></div>`}
 function vLogin(){return`<div class="login card"><h1>AI 求職教練</h1><p>陪你從準備到錄取心儀職位的 AI 職涯專屬導師</p><button class="gbtn" data-a="gopen"><b>G</b>使用 Google 帳號登入</button><p style="font-size:12px">示範站使用虛構帳號，不會連線 Google，也不會蒐集任何個人資料。</p></div>${UI.chooser?`<div class="ov"><div class="card"><h3>選擇帳號</h3>${[["Demo User","demo.user@example.com"],["Alex Chen","alex.chen@example.com"],["新使用者","new"]].map(([n,m])=>`<div class="acc" data-a="pick" data-i="${n}|${m}"><div class="av">${n[0]}</div><div>${n}<br><small class="mut">${m==="new"?"使用其他帳號（全新帳號）":m}</small></div></div>`).join("")}<button class="btn g s" data-a="gclose">取消</button></div></div>`:""}`}
 function vConsent(){return bar()+`<main><div class="card${NC()}" style="max-width:660px;margin:20px auto"><h2 style="margin-top:0">開始使用前，請閱讀資料使用說明 ${NB(6)}</h2><div class="tbw"><table>
 <tr><th style="width:96px">蒐集項目</th><td>履歷內容、面試語音轉成的文字逐字稿、作答評分、操作紀錄</td></tr>
@@ -236,11 +398,13 @@ function vConsent(){return bar()+`<main><div class="card${NC()}" style="max-widt
 <label class="ck" style="margin-top:12px"><input type="checkbox" id="c1"> 我已閱讀並同意上述服務資料使用（必要）</label>
 <label class="ck"><input type="checkbox" id="c2" checked> 同意以匿名方式提供操作紀錄與問卷，用於專題研究（選填）</label>
 <div class="row"><button class="btn" data-a="consent">同意並開始</button><button class="btn g" data-a="logout">不同意，登出</button></div></div></main>`}
-function newForm(){return`<div class="card"><h3>建立這次的模擬面試專案</h3><div class="grid"><div><label>公司名稱</label><input id="f_co"><label>應徵職位</label><input id="f_role"><label>預計面試日</label><input id="f_date" type="date"></div><div><label>職缺說明</label><textarea id="f_jd" placeholder="貼上職缺內容"></textarea><label>公司簡介（選填）</label><input id="f_intro"></div></div><label class="ck"><input type="checkbox" id="f_bad">開啟不當提問應對</label><label class="ck"><input type="checkbox" id="f_sal">加入薪資談判演練</label><div class="row"><button class="btn" data-a="create">建立專案並開始</button><button class="btn g" data-a="new">取消</button></div></div>`}
+function newForm(){return`<div class="card"><h3>建立這次的模擬面試專案</h3><div class="grid"><div><label>公司名稱</label><input id="f_co"><label>應徵職位</label><input id="f_role" placeholder="例如：後端工程師"><label>預計面試日</label><input id="f_date" type="date"></div><div><label>職缺說明（JD）</label><textarea id="f_jd" placeholder="貼上職缺內容，AI 會依 JD 關鍵字出客製題"></textarea><label>公司簡介（選填）</label><input id="f_intro"></div></div>
+<div class="grid${NC()}" style="gap:8px;padding:4px;margin-top:6px"><div><label>職類 ${NB(13)}</label><select id="f_kind"><option value="auto">自動判斷（依職位名稱）</option><option value="be">${KIND.be}</option><option value="gen">${KIND.gen}</option></select></div><div><label>職級</label><select id="f_lvl"><option value="mid">${LVL.mid}</option><option value="jr">${LVL.jr}</option></select></div></div>
+<label class="ck"><input type="checkbox" id="f_bad">開啟不當提問應對</label><label class="ck"><input type="checkbox" id="f_sal">加入薪資談判演練</label><div class="row"><button class="btn" data-a="create">建立專案並開始</button><button class="btn g" data-a="new">取消</button></div></div>`}
 function vHome(){const sims=D.rec.filter(r=>r.type==="模擬"),sc=sims.filter(r=>r.score!=null),avg=sc.length?Math.round(sc.reduce((a,b)=>a+b.score,0)/sc.length):"-";
 let h=bar()+`<main><div class="grid"><div class="card" style="display:flex;gap:14px;align-items:center"><div class="av" style="width:56px;height:56px;font-size:22px">${esc(U.name[0])}</div><div><h3 style="margin:0">${esc(U.name)}</h3><span class="mut" style="font-size:13px">${esc(U.mail)}</span></div></div><div class="card"><h3>我的求職概況</h3>面試專案 <b>${D.proj.length}</b> 個｜模擬面試 <b>${sims.length}</b> 次｜平均分數 <b>${avg}</b></div></div>`;
-if(D.sample)h+=`<div class="note${NC()}">目前包含範例資料（標示「範例」）。<a class="lnk" data-a="clrsample">清除範例資料</a> ${NB(8)}</div>`;
-if(!D.proj.length)h+=`<div class="card${NC()}"><h2 style="margin-top:0">歡迎，${esc(U.name)}！三個步驟開始 ${NB(8)}</h2><div class="grid">${[["建立面試專案","輸入目標公司、職位與職缺說明"],["上傳履歷做 AI 診斷","套用改寫建議，產生這個職缺專用的履歷"],["開始語音模擬面試","拿到逐題評分、弱點分析與特訓建議"]].map((s,i)=>`<div class="stp"><span class="pn2">${i+1}</span><b>${s[0]}</b><br><small class="mut">${s[1]}</small></div>`).join("")}</div><div class="row"><button class="btn" data-a="new">建立第一個面試專案</button><button class="btn g" data-a="sample">載入範例資料（展示用）</button></div></div>${UI.form?newForm():""}`;
+if(D.sample)h+=`<div class="note${NC()}">目前包含範例資料（標示「範例」）。「星河科技｜後端工程師」有兩場完整的 30 分鐘面試紀錄，可以直接看報告與逐字稿。<a class="lnk" data-a="clrsample">清除範例資料</a> ${NB(8)}</div>`;
+if(!D.proj.length)h+=`<div class="card${NC()}"><h2 style="margin-top:0">歡迎，${esc(U.name)}！三個步驟開始 ${NB(8)}</h2><div class="grid">${[["建立面試專案","輸入目標公司、職位與職缺說明"],["上傳履歷做 AI 診斷","套用改寫建議，產生這個職缺專用的履歷"],["開始語音模擬面試","30 分鐘完整面試，拿到逐題評分與弱點分析"]].map((s,i)=>`<div class="stp"><span class="pn2">${i+1}</span><b>${s[0]}</b><br><small class="mut">${s[1]}</small></div>`).join("")}</div><div class="row"><button class="btn" data-a="new">建立第一個面試專案</button><button class="btn g" data-a="sample">載入範例資料（展示用）</button></div></div>${UI.form?newForm():""}`;
 else h+=`<div class="row" style="justify-content:space-between"><h2 style="margin:6px 0">求職看板</h2><button class="btn" data-a="new">＋ 新增面試專案</button></div>${UI.form?newForm():""}<div class="kan">${ST.map((s,ci)=>`<div class="kcol"><h4>${s}</h4>${D.proj.filter(p=>p.st===ci).map(p=>`<div class="kc"><b>${esc(p.co)}</b>${p.sample?' <span class="tag w">範例</span>':""}<small>${esc(p.role)}｜面試日 ${esc(p.date||"未定")}</small><div class="row"><a data-a="open" data-i="${p.id}">開啟</a>${ci>0?`<a data-a="mv" data-i="${p.id}" data-d="-1">◀</a>`:""}${ci<3?`<a data-a="mv" data-i="${p.id}" data-d="1">▶</a>`:""}<a data-a="delp" data-i="${p.id}" style="color:var(--mut);font-weight:400">刪除</a></div></div>`).join("")}</div>`).join("")}</div>`;
 if(sims.length)h+=`<div class="card" style="margin-top:14px"><h3>模擬面試紀錄</h3><p class="n2">每次完整模擬面試都會自動記錄。真實面試請到專案內的「面試復盤」。</p><div class="tbw"><table><tr><th>日期</th><th>專案</th><th>次數</th><th>分數</th><th>備註</th><th></th></tr>${[...sims].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{const pp=P(r.pid);return`<tr><td>${r.date}</td><td>${esc(pp?pp.co:"（已刪除）")}</td><td>${pp?"第 "+(simRecs(pp).indexOf(r)+1)+" 次":"-"}</td><td>${r.score==null?"-":r.score}</td><td>${esc(r.note)}</td><td>${r.res&&r.res.length&&pp?`<a class="lnk" style="margin:0" data-a="rep" data-i="${r.id}">查看報告</a> `:""}<a class="lnk mut" data-a="rdel" data-i="${r.id}">刪除</a></td></tr>`}).join("")}</table></div></div>`;
 return h+vLibs()+vWeak()+`<div class="grid">${vResearch()}${vPrivacy()}</div></main>`}
@@ -248,7 +412,7 @@ function vLibs(){const used=new Set(D.proj.map(p=>p.cvId).filter(Boolean)),cov=C
 const lst=(arr,k)=>arr.map(v=>`<div class="diff" style="display:flex;gap:8px;align-items:center"><span style="flex:1"><b>${esc(v.name)}</b> ${k==="cv"&&used.has(v.id)?'<span class="tag g">面試使用中</span>':""}${k==="st"&&v.comp?`<span class="tag">${esc(v.comp)}</span>`:""}${v.sample?'<span class="tag w">範例</span>':""}<br><small class="mut">${v.date}</small></span><a class="lnk" data-a="ov" data-k="${k}" data-i="${v.id}">檢視／編輯</a><a class="lnk mut" data-a="odel" data-k="${k}" data-i="${v.id}">刪除</a></div>`).join("")||'<small class="mut">尚無資料</small>';
 return`<div class="grid"><div class="card"><h3>履歷版本庫</h3><p class="n2">針對不同職缺保存的履歷版本。在履歷診斷套用建議後，會自動產生新版本。</p>${lst(D.cv,"cv")}</div><div class="card"><div class="row" style="justify-content:space-between;margin:0"><h3 style="margin:0">故事庫</h3><button class="btn g s" data-a="ov" data-k="st" data-i="new">＋ 新增故事</button></div><p class="n2">把經歷整理成 STAR 故事，面試時重複使用。</p><div class="${NC()}" style="padding:6px;margin-bottom:6px"><b style="font-size:13px">能力涵蓋 ${NB(7)}</b><br>${cov.map(c=>`<span class="tag g">✓ ${c}</span>`).join("")}${miss.map(c=>`<span class="tag" style="cursor:pointer" data-a="ov" data-k="st" data-i="new" data-c="${c}">＋ 缺 ${c}</span>`).join("")}</div>${lst(D.st,"st")}</div></div>`}
 function vWeak(){const rows=D.proj.map(p=>{const e=Object.entries(tagStat(p));return e.length?`<div style="margin:6px 0"><b>${esc(p.co)}</b>：${e.map(([t,v])=>chip(t,v.st)).join("")}</div>`:""}).join("");
-return`<div class="card${NC()}"><h3>弱點標籤 ${NB(4)}</h3><p class="n2">待改善 → 特訓中・待驗證 → 再做一次完整面試達 70 分 → 已改善</p>${rows||'<small class="mut">完成模擬面試後會出現</small>'}</div>`}
+return`<div class="card${NC()}"><h3>弱點標籤（依面試階段）${NB(4)}</h3><p class="n2">待改善 → 特訓中・待驗證 → 再做一次完整面試達 70 分 → 已改善</p>${rows||'<small class="mut">完成模擬面試後會出現</small>'}</div>`}
 function vResearch(){if(!D.research)return`<div class="card${NC()}"><h3>研究資料 ${NB(9)}</h3><p style="margin:0;font-size:14px">你未同意提供研究資料，系統不會記錄操作。可在「隱私與資料」改為同意。</p></div>`;const dt=firstFlow();
 return`<div class="card${NC()}"><h3>研究資料 ${NB(9)}</h3><div>${ms().map(x=>`<span class="tag ${x.done?"g":""}">${x.done?"✓":"○"} ${x.l}</span>`).join("")}</div><p style="margin:8px 0 0;font-size:14px">已記錄操作 ${D.ev.length} 筆${dt!=null?`｜從開始使用到完成第一場面試：${dt} 分鐘`:""}<br>易用性問卷（SUS）：${D.sus?`<b>${D.sus.score}</b> 分（68 分為一般平均）`:'未填寫 <a class="lnk" data-a="susopen">填寫</a>'}</p><div class="row"><button class="btn g s" data-a="exp">匯出匿名研究資料（JSON）</button></div><p class="n2" style="margin-top:6px">匯出檔不含姓名、Email、公司名稱與履歷內容。正式版會在受試者同意後自動上傳後端，由研究人員統一匯出。</p></div>`}
 function vPrivacy(){return`<div class="card${NC()}"><h3>隱私與資料 ${NB(6)}</h3><div style="font-size:14px">服務資料使用：已同意（${esc(D.consent)}）<br>研究資料提供：${D.research?"已同意":"未同意"}<br>資料位置：本 demo 只存在這個瀏覽器</div><div class="row"><button class="btn g s" data-a="research">${D.research?"撤回研究同意":"同意提供研究資料"}</button><button class="btn g s" data-a="wipe">刪除我的所有資料</button></div></div>`}
@@ -257,16 +421,16 @@ function vProj(){const p=P(V.id);if(!p){V={v:"home"};return vHome()}
 if(V.step===2&&sessions(p).length&&!p.viewed){p.viewed=true;logEv("view_report",{pid:p.id});save()}
 const ss=sessions(p),dn=[!!p.dx,ss.length>0,!!p.viewed,Object.keys(p.drill||{}).length>0,ss.length>=2,D.rec.some(r=>r.pid===p.id&&r.type==="真實")],nx=dn.indexOf(false),live=I&&I.pid===p.id;
 const b=[vCv,vIv,vRep,vDrill,vTrend,vRv][V.step](p);
-const hint=V.step===0&&!p.dx?"還沒完成 AI 診斷：模擬面試會改用通用題目":V.step===1&&!ss.length?"完成一場面試後才會產生報告":V.step===3&&dn[3]?"特訓後建議回到「模擬面試」再做一次完整面試，驗證是否進步":"";
+const hint=V.step===0&&!p.dx?"還沒完成 AI 診斷：模擬面試仍可進行，但不會依履歷出題":V.step===1&&!ss.length?"完成一場面試後才會產生報告":V.step===3&&dn[3]?"特訓後建議回到「模擬面試」再做一次完整面試，驗證是否進步":"";
 const nav=`<div class="row${NC()}" style="justify-content:space-between;margin-top:18px;padding:6px">${V.step>0?`<button class="btn g" data-a="step" data-i="${V.step-1}">← ${STEPS[V.step-1]}</button>`:"<span></span>"}<span>${NB(1)}</span>${V.step<5?`<button class="btn" data-a="step" data-i="${V.step+1}">下一步：${STEPS[V.step+1]} →</button>`:"<span></span>"}</div>${hint?`<p class="n2" style="text-align:right;margin-top:6px">${hint}</p>`:""}`;
-return bar()+`<main><a class="lnk" style="margin:0" data-a="home">← 返回看板</a><h2 style="margin:6px 0 0">${esc(p.co)}｜${esc(p.role)} <span class="tag">${ST[p.st]}</span>${p.sample?'<span class="tag w">範例</span>':""}</h2>
+return bar()+`<main><a class="lnk" style="margin:0" data-a="home">← 返回看板</a><h2 style="margin:6px 0 0">${esc(p.co)}｜${esc(p.role)} <span class="tag">${ST[p.st]}</span><span class="tag">${KIND[kindOf(p)]}</span><span class="tag">${LVL[lvlOf(p)]}</span>${p.sample?'<span class="tag w">範例</span>':""}</h2>
 <div class="prog${NC()}">${STEPS.map((s,i)=>`<button class="ps${V.step===i?" on":""}${dn[i]?" done":""}" data-a="step" data-i="${i}"><span class="pn">${dn[i]?"✓":i+1}</span>${s}</button>`).join("")}${NB(1)}</div>
 ${nx>=0&&nx!==V.step&&!live?`<div class="note">建議下一步：<a class="lnk" style="margin:0" data-a="step" data-i="${nx}">${STEPS[nx]}</a>（已完成 ${dn.filter(Boolean).length} / 6 步）</div>`:""}${b}${live?"":nav}</main>`}
 
 function vCv(p){const s=p.secs;let h=`<div class="card"><h3>上傳 104 履歷 PDF</h3><p class="n2">在瀏覽器內解析，檔案不會上傳到伺服器。解析後請先確認內容，再進行 AI 診斷。</p><input type="file" id="pdf" accept="application/pdf"><div class="row"><button class="btn" data-a="parse">解析 PDF</button><span id="pst" class="mut" style="font-size:13px"></span></div>${D.cv.length?`<label>或從履歷版本庫載入</label><div class="row" style="margin:0"><select id="cvsel" style="flex:1;width:auto"><option value="">選擇履歷版本⋯⋯</option>${D.cv.map(v=>`<option value="${v.id}" ${v.id===p.cvId?"selected":""}>${esc(v.name)}</option>`).join("")}</select><button class="btn g s" data-a="loadcv">載入</button></div>`:""}</div>
 <div class="card"><h3>確認履歷內容</h3>${s?`<p class="n2">以下是從 PDF 擷取的欄位，若有誤請直接修改。</p>`+Object.keys(s).map(k=>`<label>${esc(k)}</label><textarea class="sec" data-k="${esc(k)}">${esc(s[k])}</textarea>`).join(""):`<p class="n2">尚未解析 PDF，也可以直接貼上履歷文字。${p.cvText?"":'<a class="lnk" data-a="fillcv">填入範例履歷</a>'}</p><textarea id="cv" placeholder="貼上履歷內容">${esc(p.cvText||"")}</textarea>`}<div class="row"><button class="btn" data-a="dx">確認無誤，開始 AI 診斷</button>${s?`<button class="btn g" data-a="resec">改回貼上文字</button>`:""}</div></div>`;
 return p.dx?h+vDx(p):h}
-function vDx(p){const d=p.dx,sg=p.sug||[],ok=sg.filter(s=>s.st==="ok").length,nt=applied(p),nm=matchOf(p.jd,nt).match;
+function vDx(p){const d=p.dx,sg=p.sug||[],ok=sg.filter(s=>s.st==="ok").length,nt=applied(p),nm=matchOf(p,nt).match;
 return`<div class="grid"><div class="card" style="display:flex;gap:14px;align-items:center"><div class="ring" style="--p:${d.match}"><span>${d.match}%</span></div><div><h3>職缺匹配度</h3>${d.gaps.length?d.gaps.map(g=>`<span class="tag">缺漏：${esc(g)}</span>`).join(""):'<span class="tag g">關鍵能力皆已涵蓋</span>'}</div></div><div class="card"><h3>預測可能被問的考題</h3><ul style="margin:0;padding-left:18px">${d.pq.map(q=>`<li>${esc(q)}</li>`).join("")}</ul></div></div>
 <div class="card${NC()}"><h3>逐條改寫建議 ${NB(2)}</h3><p class="n2">每條可以套用、略過，或先修改文字再套用。建議中的數字只是範例，請改成你的真實數據。</p>
 ${sg.length?sg.map((s,i)=>`<div class="sug"><div class="diff o">原文：${esc(s.o)}</div><input id="sg${i}" value="${esc(s.n)}" ${s.st?"disabled":""}><div class="row" style="margin-top:6px">${s.st==="ok"?`<span class="tag g">✓ 已套用</span><a class="lnk" data-a="sgundo" data-i="${i}">復原</a>`:s.st==="skip"?`<span class="tag">已略過</span><a class="lnk" data-a="sgundo" data-i="${i}">復原</a>`:`<button class="btn s" data-a="sgok" data-i="${i}">套用</button><button class="btn g s" data-a="sgskip" data-i="${i}">略過</button>`}</div></div>`).join("")
@@ -274,48 +438,68 @@ ${sg.length?sg.map((s,i)=>`<div class="sug"><div class="diff o">原文：${esc(s
 <p class="n2" style="margin-top:10px">目前面試使用：<span class="tag g">${esc(cvName(p))}</span></p></div>`}
 
 function vIv(p){if(I&&I.pid===p.id)return vRoom(p);const all=simRecs(p),n=all.length+1,ss=sessions(p);let h="";
-if(D.live&&D.live.pid===p.id)h+=`<div class="card${NC()}"><h3>有一場未完成的面試 ${NB(11)}</h3><span style="font-size:14px">第 ${D.live.n} 次面試，已回答 ${D.live.i} / ${D.live.q.length} 題（可能因為重新整理、斷線或關閉頁面而中斷）。</span><div class="row"><button class="btn" data-a="resume">從中斷處繼續</button><button class="btn g" data-a="abandon">放棄這場</button></div></div>`;
-if(all.length)h+=`<div class="card"><h3>這個職缺的練習紀錄</h3>${all.map((r,i)=>{const d=i>0&&r.score!=null&&all[i-1].score!=null?r.score-all[i-1].score:null;return`<div class="diff" style="display:flex;gap:8px;align-items:center"><span style="flex:1">第 ${i+1} 次｜${r.date}｜${r.score==null?"-":r.score+" 分"}${d==null?"":`（${d>=0?"+":""}${d}）`}</span>${r.res&&r.res.length?`<a class="lnk" data-a="rep" data-i="${r.id}">查看報告</a>`:""}</div>`}).join("")}</div>`;
-const prev=UI.carry&&ss.length?ss[0]:null,qs=buildQs(p,n,prev),c=f=>qs.filter(f).length,cg=c(x=>x.t==="專業能力"),cw=c(x=>x.src==="上次弱點"),cr=c(x=>x.src==="真實面試");
+if(D.live&&D.live.pid===p.id)h+=`<div class="card${NC()}"><h3>有一場未完成的面試 ${NB(11)}</h3><span style="font-size:14px">第 ${D.live.n} 次面試，已進行到第 ${D.live.i+1} / ${D.live.q.length} 題（可能因為重新整理、斷線或關閉頁面而中斷）。</span><div class="row"><button class="btn" data-a="resume">從中斷處繼續</button><button class="btn g" data-a="abandon">放棄這場</button></div></div>`;
+if(all.length)h+=`<div class="card"><h3>這個職缺的練習紀錄</h3>${all.map((r,i)=>{const d=i>0&&r.score!=null&&all[i-1].score!=null?r.score-all[i-1].score:null;return`<div class="diff" style="display:flex;gap:8px;align-items:center"><span style="flex:1">第 ${i+1} 次｜${r.date}｜${r.score==null?"-":r.score+" 分"}${d==null?"":`（${d>=0?"+":""}${d}）`}${r.res?`｜${r.res.length} 題`:""}</span>${r.res&&r.res.length?`<a class="lnk" data-a="rep" data-i="${r.id}">查看報告</a>`:""}</div>`}).join("")}</div>`;
+const prev=UI.carry&&ss.length?ss[0]:null,C=compose(p,n,prev,UI.len),qs=C.qs,c=f=>qs.filter(f).length,mins=UI.len==="quick"?15:30,sts=[...new Set(qs.map(q=>q.st))];
+const cg=c(x=>x.src==="客製"),cgap=c(x=>x.src==="技能落差"),cw=c(x=>x.src==="上次弱點"),cr=c(x=>x.src==="真實面試"),cgen=c(x=>x.src==="通用");
 h+=`<div class="card${NC()}"><h3>第 ${n} 次完整面試・面試前準備 ${NB(5)}</h3>
 <div class="${NC()}" style="padding:6px;margin-bottom:10px"><b style="font-size:13px">環境檢查 ${NB(11)}</b><br><span style="font-size:14px">語音辨識：${SR?"✓ 支援":"✗ 不支援，將改用文字輸入"}｜語音播報：${HAS_TTS?"✓ 支援":"✗ 不支援"}｜網路：${navigator.onLine?"✓ 連線中":"✗ 離線"}</span></div>
 <b style="font-size:14px">① 麥克風測試</b><div class="row" style="margin-top:4px"><button class="mic" id="mtb" data-a="mictest" ${SR?"":"disabled"}>🎙</button><span id="mt" style="font-size:14px">${SR?"按下後說一句話，確認可以辨識":"此瀏覽器不支援語音辨識，面試將使用文字輸入"}</span></div>
-<b style="font-size:14px;display:block;margin-top:12px">② 面試規則</b><div style="font-size:14px">共 ${qs.length} 題，每題可能追問一次，約 ${qs.length*2} 分鐘。過程中可以隨時暫停，或提前結束並產生報告。</div>
-<div style="margin-top:6px">使用履歷：<span class="tag g">${esc(cvName(p))}</span>${cg?`<span class="tag">履歷缺口 ${cg} 題</span>`:""}${cw?`<span class="tag w">上次弱點 ${cw} 題</span>`:""}${cr?`<span class="tag w">真實面試題 ${cr} 題</span>${NB(10)}`:""}</div>
-<b style="font-size:14px;display:block;margin-top:12px">③ 面試設定</b><label>面試官風格</label><select onchange="UI.sty=this.value" style="max-width:280px"><option value="親切" ${UI.sty==="親切"?"selected":""}>親切（鼓勵型）</option><option value="嚴格" ${UI.sty==="嚴格"?"selected":""}>嚴格（壓力型）</option></select>
+<b style="font-size:14px;display:block;margin-top:14px">② 面試設定</b>
+<div class="grid${NC()}" style="gap:8px;padding:4px"><div><label>面試長度 ${NB(12)}</label><select onchange="UI.len=this.value;render()"><option value="std" ${UI.len==="std"?"selected":""}>標準：約 30 分鐘</option><option value="quick" ${UI.len==="quick"?"selected":""}>快速：約 15 分鐘</option></select></div>
+<div><label>職類 ${NB(13)}</label><select onchange="setP('kind',this.value)"><option value="be" ${kindOf(p)==="be"?"selected":""}>${KIND.be}</option><option value="gen" ${kindOf(p)==="gen"?"selected":""}>${KIND.gen}</option></select></div>
+<div><label>職級</label><select onchange="setP('lvl',this.value)"><option value="mid" ${lvlOf(p)==="mid"?"selected":""}>${LVL.mid}</option><option value="jr" ${lvlOf(p)==="jr"?"selected":""}>${LVL.jr}</option></select></div>
+<div><label>面試官風格</label><select onchange="UI.sty=this.value"><option value="親切" ${UI.sty==="親切"?"selected":""}>親切（鼓勵型）</option><option value="嚴格" ${UI.sty==="嚴格"?"selected":""}>嚴格（壓力型）</option></select></div></div>
 <label class="ck" style="margin-top:8px"><input type="checkbox" ${UI.tts?"checked":""} onchange="UI.tts=this.checked">AI 語音播報題目</label>${ss.length?`<label class="ck"><input type="checkbox" data-a="carry" ${UI.carry?"checked":""}>帶入上次分數最低的 2 題</label>`:""}
-<p class="n2" style="margin-top:6px">不當提問：${p.bad?"開":"關"}｜薪資談判：${p.sal?"開":"關"}${p.dx?"":"｜尚未完成履歷診斷，將使用通用題目"}</p>
+<b style="font-size:14px;display:block;margin-top:14px">③ 面試流程（共 ${qs.length} 題，約 ${mins} 分鐘）${NB(12)}</b>
+<div class="tbw"><table><tr><th>階段</th><th>題數</th><th>預計時間</th></tr>${sts.map(st=>{const k=c(x=>x.st===st);return`<tr><td>${st}. ${STG[st]}</td><td>${k}</td><td>約 ${Math.max(1,Math.round(mins*k/qs.length))} 分鐘</td></tr>`}).join("")}</table></div>
+<div class="${NC()}" style="padding:4px;margin-top:8px"><b style="font-size:13px">題目來源 ${NB(14)}</b><br><span class="tag">通用 ${cgen} 題</span>${cg?`<span class="tag w">依 JD 客製 ${cg} 題</span>`:""}${cgap?`<span class="tag w">技能落差 ${cgap} 題</span>`:""}${cw?`<span class="tag w">上次弱點 ${cw} 題</span>`:""}${cr?`<span class="tag w">真實面試題 ${cr} 題</span>${NB(10)}`:""}<br><small class="mut">客製與技能落差題合計上限 ${C.cap} 題（三分之一）。${C.gaps.length?`JD 有但履歷沒有：${C.gaps.map(esc).join("、")}。`:""}題目內容面試開始才會揭曉。</small></div>
+<p class="n2" style="margin-top:8px">每題最多追問 2 層，依回答狀況決定追問方式 ${NB(15)}｜使用履歷：${esc(cvName(p))}｜不當提問：${p.bad?"開":"關"}｜薪資談判：${p.sal?"開":"關"}</p>
 <div class="note">示範以瀏覽器語音（朗讀＋語音辨識）模擬即時對談；正式版由瀏覽器以 WebRTC 直連 OpenAI Realtime，語音即時雙向。</div>
 <div class="row"><button class="btn" data-a="start">開始第 ${n} 次完整面試</button></div></div>`;return h}
-function vRoom(){const q=I.q;return`<div class="card"><div class="row" style="justify-content:space-between;margin:0"><h3 style="margin:0">面試中｜${esc(I.sty)}面試官</h3><span id="pg" class="mut" style="font-size:13px">第 ${Math.min(I.i+1,q.length)} / ${q.length} 題</span></div>
+function vRoom(){const q=I.q,cur=q[Math.min(I.i,q.length-1)].st,sts=[...new Set(q.map(x=>x.st))];
+return`<div class="card"><div class="row" style="justify-content:space-between;margin:0"><h3 style="margin:0">面試中｜${esc(I.sty)}面試官</h3><span class="mut" style="font-size:13px"><span id="pg">第 ${Math.min(I.i+1,q.length)} / ${q.length} 題</span>｜<span id="clk">${mmss(elapsed())}</span> / 預計 ${I.len==="quick"?15:30}:00</span></div>
+<div class="stg${NC()}">${sts.map(s=>`<span class="sc${s===cur?" on":s<cur?" done":""}">${s<cur?"✓ ":""}${STG[s]}</span>`).join("")}${NB(12)}</div>
 ${!SR?`<div class="note${NC()}" style="margin-top:8px">此瀏覽器不支援語音辨識，已改用文字輸入（建議使用電腦版 Chrome）${NB(11)}</div>`:""}
-<div class="chat" id="chat">${I.log.map(l=>`<div class="msg ${l.r}">${esc(l.t)}</div>`).join("")}${I.paused?'<div class="msg ai">⏸ 面試已暫停，準備好後按「繼續」。</div>':""}</div>
+<div class="chat" id="chat" style="max-height:380px">${I.log.map(l=>`<div class="msg ${l.r}">${esc(l.t)}${l.why&&UI.why?`<div class="why">↳ AI 判斷：${esc(l.why)}</div>`:""}</div>`).join("")}${I.paused?'<div class="msg ai">⏸ 面試已暫停，準備好後按「繼續」。</div>':""}</div>
 <div class="row"><button class="mic" id="mic" data-a="mic" ${!SR||I.paused?"disabled":""}>🎙</button><input id="ans" placeholder="${SR?"按麥克風說話，或在此輸入回答":"請在此輸入回答"}" style="flex:1;width:auto" ${I.paused?"disabled":""}><button class="btn" data-a="send" ${I.paused?"disabled":""}>送出</button></div>
-<div class="row${NC()}" style="padding:4px"><button class="btn g s" data-a="pause">${I.paused?"▶ 繼續":"⏸ 暫停"}</button><button class="btn g s" data-a="endearly">提前結束並產生報告</button>${NB(5)}</div></div>`}
+<div class="row${NC()}" style="padding:4px"><button class="btn g s" data-a="pause">${I.paused?"▶ 繼續":"⏸ 暫停"}</button><button class="btn g s" data-a="endearly">提前結束並產生報告</button>${NB(5)}<label class="ck" style="margin:0 0 0 auto"><input type="checkbox" data-a="why" ${UI.why?"checked":""}>顯示 AI 追問判斷（展示用）${NB(15)}</label></div></div>`}
 
 function vRep(p){const ss=sessions(p);if(!ss.length)return`<div class="card">尚無報告，請先完成一場模擬面試。</div>`;
 const r=ss.find(x=>x.id===V.rs)||ss[0],all=simRecs(p),idx=all.indexOf(r),prev=all.slice(0,idx).reverse().find(z=>z.score!=null),d=prev?r.score-prev.score:null;
 return`<div class="steps">${ss.slice().reverse().map(x=>`<button class="${x.id===r.id?"on":""}" data-a="rs" data-i="${x.id}">第 ${all.indexOf(x)+1} 次｜${x.score} 分</button>`).join("")}</div>
-<div class="card"><h3>第 ${idx+1} 次完整面試｜${r.date}</h3><div class="row" style="margin:0"><div class="ring" style="--p:${r.score}"><span>${r.score}</span></div><div style="font-size:14px">用時 ${mmss(r.dur||0)}｜${r.res.length} 題${d==null?"":`｜較上次 <b style="color:${d>=0?"var(--ok)":"var(--ac2)"}">${d>=0?"+":""}${d}</b>`}<br><span class="mut">使用履歷：${esc(r.cv||"-")}</span><br>${(r.tags||[]).map(t=>`<span class="tag g">${esc(t)}</span>`).join("")}</div></div></div>
+<div class="card"><h3>第 ${idx+1} 次完整面試｜${r.date}</h3><div class="row" style="margin:0"><div class="ring" style="--p:${r.score}"><span>${r.score}</span></div><div style="font-size:14px">用時 ${mmss(r.dur||0)}｜${r.res.length} 題｜追問 ${r.res.reduce((a,x)=>a+Math.max(0,(x.turns||[]).length-1),0)} 次${d==null?"":`｜較上次 <b style="color:${d>=0?"var(--ok)":"var(--ac2)"}">${d>=0?"+":""}${d}</b>`}<br><span class="mut">使用履歷：${esc(r.cv||"-")}</span><br>${(r.tags||[]).map(t=>`<span class="tag g">${esc(t)}</span>`).join("")}</div></div></div>
 ${D.research&&!D.sus?`<div class="card${NC()}"><h3>幫我們填一份 1 分鐘問卷 ${NB(9)}</h3><p style="margin:0;font-size:14px">你的回饋會以匿名方式用於專題的易用性分析。</p><div class="row"><button class="btn" data-a="susopen">填寫問卷</button></div></div>`:""}
-<div class="steps"><button class="${V.rt==="wk"?"":"on"}" data-a="rt" data-i="ov">面試總覽（流程與逐字稿）</button><button class="${V.rt==="wk"?"on":""}" data-a="rt" data-i="wk">弱點分析</button></div>${V.rt==="wk"?vWk(r,all,idx):vOvw(r)}`}
-function vOvw(r){return`<div class="card"><h3>面試流程</h3><div class="tl">${r.res.map((x,i)=>`<div><b>Q${i+1}</b> <span class="tag">${esc(x.t)}</span><span class="tag ${x.s>=70?"g":""}">${x.s} 分</span>${x.src?`<span class="tag w">${esc(x.src)}</span>`:""}<br>${esc(x.q)}<div class="bar" style="margin-top:4px"><i style="width:${x.s}%"></i></div></div>`).join("")}</div></div><div class="card"><details><summary style="cursor:pointer;font-weight:600">完整逐字稿（${(r.log||[]).length} 則）</summary>${(r.log||[]).map(l=>`<div class="tr"><span class="mut">${mmss(l.s||0)}</span> <b>${l.r==="ai"?"面試官":"我"}</b>：${esc(l.t)}</div>`).join("")||"<small>此筆紀錄沒有逐字稿</small>"}</details></div>`}
-function dimRow(k,v){return`<div class="dim"><span>${k}</span><div class="bar"><i style="width:${v*4}%"></i></div><span>${v}/25</span></div>`}
-function vWk(r,all,idx){const avgD=DIMS.map(k=>Math.round(r.res.reduce((a,x)=>a+(x.d?x.d[k]:0),0)/r.res.length)),pr=all.slice(0,idx).reverse().find(z=>z.res&&z.res.length);
-let h=`<div class="card${NC()}"><h3>四項評分標準（各 25 分）${NB(3)}</h3>${DIMS.map((k,i)=>dimRow(k,avgD[i])).join("")}<p class="n2" style="margin-top:8px">具體性：情境與細節是否充足｜量化數據：有沒有規模、時間、百分比｜結構：有沒有「情境→行動→結果」｜切題：有沒有回應題目重點。<br>示範版以規則計分；正式版由 AI 依同一套標準評分，並引用逐字稿原句。</p><div class="row"><button class="btn" data-a="step" data-i="3">前往弱點特訓（語音）</button></div></div>`;
-return h+r.res.map((x,i)=>({x,i})).sort((a,b)=>a.x.s-b.x.s).map(({x,i})=>{const pv=pr&&pr.res.find(z=>z.q===x.q),comp=T2C[x.t],sto=comp&&D.st.find(s=>s.comp===comp);
-return`<div class="card"><h3>Q${i+1}｜${esc(x.q)}</h3><span class="tag">${x.s} 分</span><span class="tag">${esc(x.t)}</span>${x.src?`<span class="tag w">${esc(x.src)}</span>`:""}${pv?`<span class="tag g">上次 ${pv.s} → 這次 ${x.s}</span>`:""}
-${x.d?`<div style="margin:8px 0">${DIMS.map(k=>dimRow(k,x.d[k])).join("")}</div>`:""}
-${x.ev?`<div class="${NC()}" style="padding:4px 6px;margin:6px 0"><b style="font-size:13px">評分依據 ${NB(3)}</b>${x.ev.map(e=>`<div class="diff${e.indexOf("✓")>=0?" n":""}">${esc(e)}</div>`).join("")}</div>`:""}
-<div class="diff o">你的回答：${esc(x.a||"（未作答）")}</div><div class="diff n">示範答案：${esc(x.m)}</div>
+<div class="steps"><button class="${V.rt==="wk"?"":"on"}" data-a="rt" data-i="ov">面試總覽（流程與逐字稿）</button><button class="${V.rt==="wk"?"on":""}" data-a="rt" data-i="wk">弱點分析</button></div>${V.rt==="wk"?vWk(r,all,idx,p):vOvw(r)}`}
+function stageTimes(r){const first={};(r.log||[]).forEach(l=>{const st=r.res[l.qi]&&r.res[l.qi].st;if(st&&first[st]==null)first[st]=l.s});const ks=Object.keys(first).map(Number).sort((a,b)=>a-b),o={};ks.forEach((k,i)=>o[k]=(i<ks.length-1?first[ks[i+1]]:(r.dur||0))-first[k]);return o}
+function vOvw(r){const sts=[...new Set(r.res.map(x=>x.st))],tm=stageTimes(r),mins=r.len==="quick"?15:30;
+return`<div class="card${NC()}"><h3>各階段表現 ${NB(12)}</h3><div class="tbw"><table><tr><th>階段</th><th>題數</th><th>用時／預計</th><th>平均分數</th></tr>${sts.map(st=>{const xs=r.res.filter(x=>x.st===st),a=Math.round(xs.reduce((s,x)=>s+x.s,0)/xs.length);return`<tr><td>${st}. ${STG[st]||"—"}</td><td>${xs.length}</td><td>${tm[st]!=null?mmss(tm[st]):"-"}／約 ${Math.max(1,Math.round(mins*xs.length/r.res.length))} 分</td><td><span class="tag ${a>=70?"g":""}">${a}</span></td></tr>`}).join("")}</table></div></div>
+<div class="card"><h3>面試流程</h3><div class="tl">${r.res.map((x,i)=>`<div><b>Q${i+1}</b> <span class="tag">${esc(x.t)}</span><span class="tag ${x.s>=70?"g":""}">${x.s} 分</span>${x.src&&x.src!=="通用"?`<span class="tag w">${esc(x.src)}</span>`:""}${(x.turns||[]).length>1?`<span class="tag">追問 ${x.turns.length-1} 次</span>`:""}<br>${esc(x.q)}<div class="bar" style="margin-top:4px"><i style="width:${x.s}%"></i></div></div>`).join("")}</div></div>
+<div class="card"><details><summary style="cursor:pointer;font-weight:600">完整逐字稿（${(r.log||[]).length} 則，含 AI 追問判斷）${NB(15)}</summary>${(r.log||[]).map(l=>l.r==="sys"?`<div class="tr" style="margin-top:10px"><b style="color:var(--mut)">── ${esc(l.t)} ──</b></div>`:`<div class="tr"><span class="mut">${mmss(l.s||0)}</span> <b>${l.r==="ai"?"面試官":"我"}</b>：${esc(l.t)}${l.why?`<div class="why">↳ AI 判斷：${esc(l.why)}</div>`:""}</div>`).join("")||"<small>此筆紀錄沒有逐字稿</small>"}</details></div>`}
+function dimRow(k,v){v=nd(v);return`<div class="dim"><span style="font-size:12px">${k}</span><div class="bar"><i style="width:${v*20}%"></i></div><span>${v}/5</span></div>`}
+function vWk(r,all,idx,p){const pr=all.slice(0,idx).reverse().find(z=>z.res&&z.res.length),agg={};
+r.res.forEach((x,i)=>Object.entries(x.d||{}).forEach(([k,v])=>{(agg[k]=agg[k]||[]).push({v:nd(v),x,i})}));
+const rows=Object.entries(agg).map(([k,arr])=>({k,avg:arr.reduce((a,b)=>a+b.v,0)/arr.length,w:arr.slice().sort((a,b)=>a.v-b.v)[0]})).sort((a,b)=>a.avg-b.avg),weak=rows.slice(0,rows.length>=3&&rows[2].avg<3.5?3:2);
+const flags=[];r.res.forEach((x,i)=>(x.ev||[]).filter(e=>e.indexOf("⚠")===0).forEach(e=>flags.push(`Q${i+1}：${e.slice(2)}`)));
+let h=`<div class="card${NC()}"><h3>最需要加強的維度 ${NB(16)}</h3>${weak.map(w=>{const s1=(w.w.x.a||"").split(/[。！？!?\n]/)[0];return`<div class="diff o" style="color:var(--ink)"><b>${esc(w.k)}</b>（平均 ${w.avg.toFixed(1)} / 5）<br><small class="mut">例證：Q${w.w.i+1}「${esc(cut(w.w.x.q,30))}」你說「${esc(cut(s1,34))}」</small><br>練習建議：${esc(SUGG[w.k]||"")}</div>`}).join("")}
+<label style="margin-top:12px">六個評分維度（各 1～5 分）</label>${rows.slice().sort((a,b)=>DIMS.indexOf(a.k)-DIMS.indexOf(b.k)).map(x=>dimRow(x.k,Math.round(x.avg))).join("")}
+<p class="n2" style="margin-top:8px">每題只計入相關維度。示範版以規則比對「好答案訊號」與「警訊」計分；正式版由 AI 依同一份題庫評分，並引用逐字稿原句。</p><div class="row"><button class="btn" data-a="step" data-i="3">前往弱點特訓（語音）</button></div></div>`;
+if((r.gaps||[]).length)h+=`<div class="card${NC()}"><h3>技能落差 ${NB(14)}</h3><p style="margin:0;font-size:14px">JD 要求、但履歷沒有提到的技術：${r.gaps.map(g=>`<span class="tag">${esc(g)}</span>`).join("")}</p><p class="n2" style="margin:6px 0 0">依題庫規則，每場只問一題「你會怎麼追上」，不深挖細節。建議準備學習計畫，或補一個小型練習專案寫進履歷。</p></div>`;
+if(flags.length)h+=`<div class="card${NC()}"><h3>警訊彙整 ${NB(16)}</h3>${flags.map(f=>`<div class="diff">${esc(f)}</div>`).join("")}</div>`;
+return h+r.res.map((x,i)=>({x,i})).sort((a,b)=>a.x.s-b.x.s).map(({x,i})=>{const pv=pr&&pr.res.find(z=>z.id===x.id||z.q===x.q),comp=x.comp||T2C[x.t],sto=comp&&D.st.find(s=>s.comp===comp);
+return`<div class="card"><h3>Q${i+1}｜${esc(x.q)}</h3><span class="tag">${x.s} 分</span><span class="tag">${esc(x.t)}</span>${x.src&&x.src!=="通用"?`<span class="tag w">${esc(x.src)}</span>`:""}${pv?`<span class="tag g">上次 ${pv.s} → 這次 ${x.s}</span>`:""}
+${x.d?`<div style="margin:8px 0">${Object.entries(x.d).map(([k,v])=>dimRow(k,v)).join("")}</div>`:""}
+${x.ev?`<div class="${NC()}" style="padding:4px 6px;margin:6px 0"><b style="font-size:13px">評分依據 ${NB(3)}</b>${x.ev.map(e=>`<div class="diff${e.indexOf("✓")===0?" n":""}">${esc(e)}</div>`).join("")}</div>`:""}
+${(x.turns||[{q:x.q,a:x.a}]).map((t,j)=>`<div class="turn">${j?`<span class="qq">追問 ${j}：</span>${esc(t.q)}${t.why?`<div class="why">↳ AI 判斷：${esc(t.why)}</div>`:""}`:""}<div${j?' style="margin-top:2px"':""}><span class="mut">你的回答：</span>${esc(t.a||"（未作答）")}</div></div>`).join("")}
+<div class="diff n">示範答案：${esc(x.m)}</div>
 ${x.s<70&&comp?`<div class="note${NC()}" style="margin-top:8px">${sto?`可以用故事庫的「${esc(sto.name)}」來回答這題：${esc(cut(sto.text.replace(/\n/g," "),48))}`:`故事庫還沒有「${comp}」類的故事，這是常見考題。<a class="lnk" data-a="ov" data-k="st" data-i="new" data-c="${comp}">新增「${comp}」故事</a>`} ${NB(7)}</div>`:""}
 <div class="row"><button class="btn g s" data-a="tostory" data-i="${i}">將示範答案存入故事庫</button></div></div>`}).join("")}
 
 function vDrill(p){const r=sessions(p)[0];if(!r)return`<div class="card">尚無弱點可練，請先完成一場模擬面試。</div>`;const n=simRecs(p).indexOf(r)+1;
-let h=`<div class="card${NC()}"><h3>針對第 ${n} 次面試最弱的 3 題 ${NB(4)}</h3><p style="margin:0;font-size:14px">AI 重新提問，你用語音再答一次。<b>特訓分數只供練習，不會改變面試分數。</b>特訓完請回到「模擬面試」再做一次完整面試，該題型平均達 70 分，弱點才會標示為「已改善」。</p></div>`;
-h+=r.res.map((x,i)=>({x,i})).sort((a,b)=>a.x.s-b.x.s).slice(0,3).map(({x,i})=>{const key=r.id+"_"+i,g=UI.dres[key];
+let h=`<div class="card${NC()}"><h3>針對第 ${n} 次面試最弱的 3 題 ${NB(4)}</h3><p style="margin:0;font-size:14px">AI 重新提問，你用語音再答一次。<b>特訓分數只供練習，不會改變面試分數。</b>特訓完請回到「模擬面試」再做一次完整面試，該階段平均達 70 分，弱點才會標示為「已改善」。</p></div>`;
+h+=r.res.map((x,i)=>({x,i})).filter(o=>o.x.st!==7).sort((a,b)=>a.x.s-b.x.s).slice(0,3).map(({x,i})=>{const key=r.id+"_"+i,g=UI.dres[key];
 return`<div class="card"><h3>${esc(x.q)}</h3><span class="tag">${esc(x.t)}</span><span class="tag">面試時 ${x.s} 分</span><div class="row"><button class="btn g s" data-a="dspk" data-i="${i}">🔊 AI 重新提問</button><button class="mic" data-a="dmic" data-i="${i}" ${SR?"":"disabled"}>🎙</button><span class="mut" style="font-size:13px">${SR?"按麥克風口說回答":"不支援語音辨識，請直接輸入"}</span></div><textarea id="dr${i}" placeholder="語音辨識結果會出現在這裡，可以修改">${esc(UI.dans[key]||"")}</textarea><div class="row"><button class="btn" data-a="retry" data-i="${i}">送出練習</button></div>
-${g?`<div class="diff n">練習分數：${g.s}（面試時 ${x.s}）</div>${g.ev.map(e=>`<div class="diff${e.indexOf("✓")>=0?" n":""}">${esc(e)}</div>`).join("")}<div class="diff">示範答案：${esc(x.m)}</div>`:""}</div>`}).join("");
+${g?`<div class="diff n">練習分數：${g.s}（面試時 ${x.s}）</div>${g.ev.map(e=>`<div class="diff${e.indexOf("✓")===0?" n":""}">${esc(e)}</div>`).join("")}<div class="diff">示範答案：${esc(x.m)}</div>`:""}</div>`}).join("");
 const dt=Object.entries(p.drill||{}).filter(([,id])=>id===r.id);
 if(dt.length)h+=`<div class="card${NC()}"><h3>下一步：驗證進步 ${NB(4)}</h3>${dt.map(([t])=>chip(t,"特訓中・待驗證")).join("")}<div class="row"><button class="btn" data-a="step" data-i="1">再做一次完整面試</button></div></div>`;return h}
 
@@ -323,7 +507,7 @@ function vTrend(p){const all=simRecs(p),sc=all.filter(r=>r.score!=null);if(!sc.l
 const W=560,H=190,m=30,xs=i=>m+i*(W-2*m)/Math.max(1,sc.length-1),ys=v=>H-m-(Math.max(20,v)-20)*(H-2*m)/80;
 const svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%"><line x1="${m}" y1="${H-m}" x2="${W-m}" y2="${H-m}" stroke="var(--line)"/><line x1="${m}" y1="${ys(70)}" x2="${W-m}" y2="${ys(70)}" stroke="var(--ok)" stroke-dasharray="4 4"/><text x="${W-m}" y="${ys(70)-4}" text-anchor="end">70 分</text><polyline fill="none" stroke="var(--ac)" stroke-width="3" points="${sc.map((r,i)=>xs(i)+","+ys(r.score)).join(" ")}"/>${sc.map((r,i)=>`<circle cx="${xs(i)}" cy="${ys(r.score)}" r="4.5" fill="var(--ac2)"/><text x="${xs(i)}" y="${ys(r.score)-9}" text-anchor="middle">${r.score}</text><text x="${xs(i)}" y="${H-8}" text-anchor="middle">第${all.indexOf(r)+1}次</text>`).join("")}</svg>`;
 const f=sc[0].score,l=sc[sc.length-1].score,e=Object.entries(tagStat(p));
-return`<div class="card"><h3>${esc(p.co)}｜分數趨勢</h3>${svg}<p style="margin:4px 0 0">共 ${sc.length} 次練習，由 ${f} 分到 ${l} 分（${l-f>=0?"+":""}${l-f}）。</p></div><div class="card${NC()}"><h3>各題型分數與弱點狀態 ${NB(4)}</h3>${e.length?`<div class="tbw"><table><tr><th>題型</th><th>每次平均分數</th><th>狀態</th></tr>${e.map(([t,v])=>`<tr><td>${esc(t)}</td><td>${v.hist.join(" → ")}</td><td>${chip("",v.st)}</td></tr>`).join("")}</table></div>`:"<small>完成有逐題資料的模擬面試後會顯示</small>"}</div>`}
+return`<div class="card"><h3>${esc(p.co)}｜分數趨勢</h3>${svg}<p style="margin:4px 0 0">共 ${sc.length} 次練習，由 ${f} 分到 ${l} 分（${l-f>=0?"+":""}${l-f}）。</p></div><div class="card${NC()}"><h3>各階段分數與弱點狀態 ${NB(4)}</h3>${e.length?`<div class="tbw"><table><tr><th>面試階段</th><th>每次平均分數</th><th>狀態</th></tr>${e.map(([t,v])=>`<tr><td>${esc(t)}</td><td>${v.hist.join(" → ")}</td><td>${chip("",v.st)}</td></tr>`).join("")}</table></div>`:"<small>完成有逐題資料的模擬面試後會顯示</small>"}</div>`}
 
 function vRv(p){const real=D.rec.filter(r=>r.pid===p.id&&r.type==="真實");
 return`<div class="card${NC()}"><h3>記錄一場真實面試 ${NB(10)}</h3><div class="grid" style="gap:8px"><div><label>日期</label><input type="date" id="rdate" value="${today()}"></div><div><label>關卡</label><select id="rst"><option>一面</option><option>二面</option><option>最終面</option><option>其他</option></select></div><div><label>結果</label><select id="rres"><option>等待中</option><option>進入下一關</option><option>錄取</option><option>未錄取</option></select></div></div><label>被問到的題目（每行一題，會加入題庫）</label><textarea id="rv"></textarea><label>心得或被刷原因（選填）</label><input id="rvn"><div class="row"><button class="btn" data-a="rv">儲存紀錄並更新題庫</button></div></div>
@@ -333,50 +517,53 @@ return`<div class="card${NC()}"><h3>記錄一場真實面試 ${NB(10)}</h3><div 
 function vOv(){const o=UI.ov,arr=o.k==="cv"?D.cv:D.st,x=arr.find(z=>z.id===o.id)||{name:"",text:"",comp:o.c||COMP[0]};
 return`<div class="ov"><div class="card" style="max-width:540px"><h3>${o.k==="cv"?"履歷版本":"故事（STAR）"}</h3><label>名稱</label><input id="o_n" value="${esc(x.name)}">${o.k==="st"?`<label>能力類別 ${NB(7)}</label><select id="o_c">${COMP.map(c=>`<option ${c===(x.comp||o.c)?"selected":""}>${c}</option>`).join("")}</select>`:""}<label>內容</label><textarea id="o_t" style="min-height:180px" placeholder="【情境】&#10;【任務】&#10;【行動】&#10;【結果】">${esc(x.text)}</textarea><div class="row"><button class="btn" data-a="osave">儲存</button><button class="btn g" data-a="oclose">關閉</button></div></div></div>`}
 function vSus(){return`<div class="ov"><div class="card" style="max-width:580px;max-height:88vh;overflow:auto"><h3>易用性問卷（SUS）${NB(9)}</h3><p class="n2">1 = 非常不同意，5 = 非常同意。約 1 分鐘。</p>${SUS.map((s,i)=>`<div class="lk"><span>${i+1}. ${s}</span>${[1,2,3,4,5].map(v=>`<label><input type="radio" name="s${i}" value="${v}"><br>${v}</label>`).join("")}</div>`).join("")}<label>其他回饋（選填，請勿填寫個人資料）</label><textarea id="scm"></textarea><div class="row"><button class="btn" data-a="susok">送出</button><button class="btn g" data-a="susx">稍後再填</button></div></div></div>`}
-function vCL(){const s=UI.cl;return`<div class="ov"><div class="card" style="max-width:660px;max-height:88vh;overflow:auto"><div class="row" style="justify-content:space-between;margin:0"><h3 style="margin:0">本版更新說明（v3，相較前一版 demo）</h3><button class="btn g s" data-a="clx">關閉</button></div><p class="n2" style="margin-top:6px">共 11 項，編號對應先前整理的 11 項改善建議。畫面上的藍色「新 N」標籤與虛線框，代表該處是本版新增或改動，點標籤可以回到這裡看說明。</p><label class="ck"><input type="checkbox" data-a="togglenew" ${UI.showNew?"checked":""}> 在畫面上顯示「新 N」標籤與虛線框</label>${CL.slice(1).map((c,j)=>`<div class="cli${s===j+1?" sel":""}" id="cl${j+1}"><b><span class="nb" style="margin:0 6px 0 0">新 ${j+1}</span>${c.t}</b><div class="diff o">前一版：${c.b}</div><div class="diff n">本版：${c.a}</div><small class="mut">在哪裡看：${c.w}</small></div>`).join("")}</div></div>`}
+function vCL(){const s=UI.cl;return`<div class="ov"><div class="card" style="max-width:680px;max-height:88vh;overflow:auto"><div class="row" style="justify-content:space-between;margin:0"><h3 style="margin:0">本版更新說明（相較前一版 demo）</h3><button class="btn g s" data-a="clx">關閉</button></div><p class="n2" style="margin-top:6px">共 ${CL.length-1} 項。第 1～11 項對應先前整理的 11 項改善建議；第 12～17 項依《AI 面試官提問題庫：後端工程師》做成完整面試流程。畫面上的藍色「新 N」標籤與虛線框，代表該處是本版新增或改動，點標籤可以回到這裡看說明。</p><label class="ck"><input type="checkbox" data-a="togglenew" ${UI.showNew?"checked":""}> 在畫面上顯示「新 N」標籤與虛線框</label>${CL.slice(1).map((c,j)=>`${CLG[j+1]?`<div class="clh">${CLG[j+1]}</div>`:""}<div class="cli${s===j+1?" sel":""}" id="cl${j+1}"><b><span class="nb" style="margin:0 6px 0 0">新 ${j+1}</span>${c.t}</b><div class="diff o">前一版：${c.b}</div><div class="diff n">本版：${c.a}</div><small class="mut">在哪裡看：${c.w}</small></div>`).join("")}</div></div>`}
 
 function render(){let h=!U?vLogin():!D.consent?vConsent():V.v==="proj"?vProj():vHome();
 if(U&&D&&D.consent){if(UI.ov)h+=vOv();if(UI.sus)h+=vSus()}
 if(UI.cl!==null)h+=vCL();
-h+=`<button class="fab" data-a="cl" data-i="0">本版更新 11 項${UI.showNew?"":"（標示已隱藏）"}</button>`;
+h+=`<button class="fab" data-a="cl" data-i="0">本版更新 ${CL.length-1} 項${UI.showNew?"":"（標示已隱藏）"}</button>`;
 $("#app").innerHTML=h;netBan();
 if(UI.cl>0&&document.getElementById){const e=document.getElementById("cl"+UI.cl);if(e&&e.scrollIntoView)e.scrollIntoView({block:"center"})}
 const ch=$("#chat");if(ch)ch.scrollTop=ch.scrollHeight}
 function netBan(){const n=$("#net");if(!n)return;n.innerHTML="⚠ 網路中斷：作答內容已暫存在這台裝置，恢復連線後可繼續"+NB(11);n.style.display=typeof navigator!=="undefined"&&navigator.onLine===false?"block":"none"}
+function setP(k,v){const p=P(V.id);if(!p)return;p[k]=v;save();render()}
 
 /* ===== 動作 ===== */
 const A={
 gopen(){UI.chooser=true},gclose(){UI.chooser=false},
 pick(i){const[n,m]=i.split("|");U={name:n,mail:m==="new"?"user."+Math.random().toString(36).slice(2,7)+"@example.com":m};let d=null;try{d=JSON.parse(localStorage.getItem(KV+"u_"+U.mail)||"null")}catch(e){}D=d||blank();UI.chooser=false;V={v:"home"};I=null;if(D.consent)logEv("login")},
 consent(){if(!$("#c1").checked){toast("請先勾選同意服務資料使用");return 1}D.consent=today();D.research=$("#c2").checked;logEv("consent")},
-logout(){try{if(HAS_TTS)speechSynthesis.cancel()}catch(e){}save();U=null;D=null;I=null;V={v:"home"};try{localStorage.removeItem(KV+"session")}catch(e){}},
+logout(){try{if(HAS_TTS)speechSynthesis.cancel()}catch(e){}clearTimeout(silT);save();U=null;D=null;I=null;V={v:"home"};try{localStorage.removeItem(KV+"session")}catch(e){}},
 home(){V={v:"home"};UI.form=false},new(){UI.form=!UI.form},
 sample(){seedSample();toast("已載入範例資料，可隨時清除")},clrsample(){if(confirm("清除所有範例資料？你自己建立的資料會保留。")){clearSample();if(V.v==="proj"&&!P(V.id))V={v:"home"}}},
 create(){const co=$("#f_co").value.trim(),role=$("#f_role").value.trim();if(!co||!role){toast("請填寫公司與職位");return 1}
-const p={id:uid(),co,role,jd:$("#f_jd").value,intro:$("#f_intro").value,date:$("#f_date").value,st:0,bad:$("#f_bad").checked?1:0,sal:$("#f_sal").checked?1:0,bank:[],drill:{}};D.proj.push(p);UI.form=false;V={v:"proj",id:p.id,step:0};logEv("create_project",{pid:p.id})},
+const kv=$("#f_kind").value,p={id:uid(),co,role,jd:$("#f_jd").value,intro:$("#f_intro").value,date:$("#f_date").value,st:0,bad:$("#f_bad").checked?1:0,sal:$("#f_sal").checked?1:0,bank:[],drill:{},lvl:$("#f_lvl").value};
+p.kind=kv==="auto"?kindOf(p):kv;D.proj.push(p);UI.form=false;V={v:"proj",id:p.id,step:0};logEv("create_project",{pid:p.id,kind:p.kind,lvl:p.lvl})},
 open(i){V={v:"proj",id:i,step:0}},mv(i,b){const p=P(i);p.st=Math.max(0,Math.min(3,p.st+ +b.dataset.d))},
 delp(i){if(confirm("刪除此專案？相關紀錄會保留但不再連結。")){D.proj=D.proj.filter(p=>p.id!==i);if(D.live&&D.live.pid===i)D.live=null}},
 step(i){V.step=+i;try{window.scrollTo(0,0)}catch(e){}},rs(i){V.rs=i},rt(i){V.rt=i},
 rep(i){const r=D.rec.find(x=>x.id===i);if(r)V={v:"proj",id:r.pid,step:2,rs:r.id,rt:"ov"}},
 rdel(i){if(confirm("刪除這筆紀錄？"))D.rec=D.rec.filter(r=>r.id!==i)},
-parse(){doParse();return 1},resec(){const p=P(V.id);delete p.secs},fillcv(){P(V.id).cvText=SC},
+parse(){doParse();return 1},resec(){const p=P(V.id);delete p.secs},fillcv(){const p=P(V.id);p.cvText=kindOf(p)==="be"?SC_BE:SC},
 loadcv(){const id=$("#cvsel").value;if(!id)return 1;const p=P(V.id);delete p.secs;p.cvText=D.cv.find(x=>x.id===id).text;p.cvId=id},
 dx(){const p=P(V.id),cv=p.secs?collectSecs(p):($("#cv")?$("#cv").value:p.cvText||"");if(!cv.trim()){toast("請先上傳或貼上履歷");return 1}if(cv!==p.cvText)p.cvId=null;p.cvText=cv;p.dx=diagnose(p,cv);p.sug=suggest(cv,p.dx.gaps);logEv("dx",{pid:p.id})},
 sgok(i){const p=P(V.id),s=p.sug[+i];s.n=$("#sg"+i).value;s.st="ok";logEv("apply_rewrite",{pid:p.id})},sgskip(i){P(V.id).sug[+i].st="skip"},sgundo(i){P(V.id).sug[+i].st=""},
 mkcv(){const p=P(V.id),t=applied(p),k=D.cv.filter(c=>c.pid===p.id).length+1,c={id:uid(),pid:p.id,name:`${p.co}_${p.role} v${k}`,text:t,date:today()};D.cv.push(c);p.cvId=c.id;p.cvText=t;delete p.secs;p.dx=diagnose(p,t);p.sug=suggest(t,p.dx.gaps);logEv("new_cv_version",{pid:p.id});toast(`已產生「${c.name}」，模擬面試將依新版出題`)},
-carry(){UI.carry=!UI.carry},
+carry(){UI.carry=!UI.carry},why(){UI.why=!UI.why},
 mictest(i,b){if(!SR){toast("此瀏覽器不支援語音辨識");return 1}listen(b,t=>{const m=$("#mt");if(m)m.textContent="✓ 聽到：「"+t+"」，麥克風正常"});return 1},
 start(){startIv();return 1},send(){sendAns();return 1},
 mic(i,b){if(I&&I.paused)return 1;listen(b,t=>{const a=$("#ans");if(a){a.value=t;sendAns()}});return 1},
-pause(){if(!I)return 1;if(I.paused){I.ts=Date.now();I.paused=false}else{I.el=elapsed();I.paused=true;try{if(HAS_TTS)speechSynthesis.cancel()}catch(e){}}D.live=I;logEv(I.paused?"pause":"resume_pause")},
+pause(){if(!I)return 1;if(I.paused){I.ts=Date.now();I.paused=false;armSil()}else{I.el=elapsed();I.paused=true;clearTimeout(silT);try{if(HAS_TTS)speechSynthesis.cancel()}catch(e){}}D.live=I;logEv(I.paused?"pause":"resume_pause")},
 endearly(){if(confirm("提前結束？已回答的題目會產生報告。")){finishIv(true)}return 1},
-resume(){I=D.live;I.el=I.log.length?I.log[I.log.length-1].s:0;I.ts=Date.now();I.paused=false;render();say("我們從剛才中斷的地方繼續。","ai");if(I.ph===1&&I.q[I.i].f)say(I.q[I.i].f,"ai");else ask();logEv("interview_resume");return 1},
+resume(){I=D.live;I.el=I.log.length?I.log[I.log.length-1].s:0;I.ts=Date.now();I.paused=false;I.ans=I.ans||[];I.fus=I.fus||[];I.std=I.std||[];render();say("我們從剛才中斷的地方繼續。","ai");
+const fl=(I.fus[I.i]||[]);if(I.layer>0&&fl.length){say(fl[fl.length-1].t,"ai",fl[fl.length-1].why);armSil()}else ask();logEv("interview_resume");return 1},
 abandon(){if(confirm("放棄這場未完成的面試？")){D.live=null;I=null}},
-tostory(i){const x=curS(P(V.id)).res[+i];D.st.push({id:uid(),name:x.q,comp:T2C[x.t]||"成就經驗",text:x.m,date:today()});toast("已存入故事庫")},
+tostory(i){const x=curS(P(V.id)).res[+i];D.st.push({id:uid(),name:x.q,comp:x.comp||T2C[x.t]||"成就經驗",text:x.m,date:today()});toast("已存入故事庫")},
 dspk(i){spk(sessions(P(V.id))[0].res[+i].q);return 1},
 dmic(i,b){listen(b,t=>{const e=$("#dr"+i);if(e)e.value=t});return 1},
 retry(i){const p=P(V.id),r=sessions(p)[0],x=r.res[+i],a=($("#dr"+i).value||"").trim();if(!a){toast("請先作答");return 1}
-const key=r.id+"_"+i,g=grade(x,a);UI.dres[key]=g;UI.dans[key]=a;p.drill=p.drill||{};p.drill[x.t]=r.id;logEv("drill",{pid:p.id,t:x.t,s:g.s});spk(`練習分數 ${g.s} 分。`)},
+const key=r.id+"_"+i,g=grade(x,a,{co:p.co});UI.dres[key]=g;UI.dans[key]=a;p.drill=p.drill||{};p.drill[x.t]=r.id;logEv("drill",{pid:p.id,t:x.t,s:g.s});spk(`練習分數 ${g.s} 分。`)},
 rv(){const p=P(V.id),qs=$("#rv").value.split("\n").map(s=>s.trim()).filter(Boolean),res=$("#rres").value,stage=$("#rst").value,nt=$("#rvn").value;
 if(!qs.length&&!nt){toast("請至少輸入被問到的題目或心得");return 1}p.bank=p.bank||[];qs.forEach(q=>{if(!p.bank.some(b=>b.q===q))p.bank.push({q,date:today(),stage})});
 D.rec.push({id:uid(),pid:p.id,date:$("#rdate").value||today(),type:"真實",score:null,stage,result:res,qs,note:nt,res:[]});
@@ -390,9 +577,9 @@ susopen(){UI.sus=true},susx(){UI.sus=false},
 susok(){const ans=SUS.map((_,i)=>{const e=document.querySelector(`input[name=s${i}]:checked`);return e?+e.value:0});const miss=ans.filter(v=>!v).length;if(miss){toast(`還有 ${miss} 題未作答`);return 1}
 const score=Math.round(ans.reduce((a,v,i)=>a+(i%2===0?v-1:5-v),0)*2.5*10)/10;D.sus={score,ans,cm:$("#scm").value,date:today()};UI.sus=false;logEv("survey",{score});toast(`感謝填寫！SUS 分數 ${score}`)},
 exp(){const px={};D.proj.forEach((p,i)=>px[p.id]="專案"+(i+1));
-const data={participant:hsh(U.mail),exportedAt:new Date().toISOString(),version:"v3",milestones:ms(),minutesToFirstInterview:firstFlow(),sus:D.sus?{score:D.sus.score,answers:D.sus.ans}:null,
+const data={participant:hsh(U.mail),exportedAt:new Date().toISOString(),version:"v3.1",milestones:ms(),minutesToFirstInterview:firstFlow(),sus:D.sus?{score:D.sus.score,answers:D.sus.ans}:null,
 events:D.ev.map(e=>{const o=Object.assign({},e);if(o.pid)o.pid=px[o.pid]||"已刪除專案";return o}),
-interviews:D.rec.filter(r=>r.type==="模擬").map(r=>({project:px[r.pid]||"已刪除專案",date:r.date,score:r.score,durationSec:r.dur||null,questions:(r.res||[]).map(x=>({type:x.t,score:x.s,dims:x.d}))}))};
+interviews:D.rec.filter(r=>r.type==="模擬").map(r=>({project:px[r.pid]||"已刪除專案",date:r.date,score:r.score,durationSec:r.dur||null,length:r.len||null,questions:(r.res||[]).map(x=>({id:x.id,stage:x.t,source:x.src,score:x.s,followUps:Math.max(0,(x.turns||[]).length-1),dims:x.d}))}))};
 try{const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=data.participant+"_research.json";document.body.append(a);a.click();a.remove();logEv("export");save()}catch(e){toast("匯出失敗，請改用電腦瀏覽器")}return 1},
 research(){if(D.research){if(!confirm("撤回研究同意？已記錄的操作紀錄與問卷會一併刪除。"))return 1;D.research=false;D.ev=[];D.sus=null;toast("已撤回研究同意")}else{D.research=true;logEv("consent_research");toast("已同意提供研究資料")}},
 wipe(){if(!confirm("刪除這個帳號在本裝置的所有資料？此動作無法復原。"))return 1;try{localStorage.removeItem(KV+"u_"+U.mail);localStorage.removeItem(KV+"session")}catch(e){}U=null;D=null;I=null;V={v:"home"};render();toast("已刪除所有資料");return 1},
